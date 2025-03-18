@@ -3,6 +3,7 @@ package status
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,10 +12,12 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
+// GetStatus handles /status, it reads recentchange updates from Wikimedia
+// It processes events from the stream and updates stats
 func GetStatus(w http.ResponseWriter, r *http.Request) {
 	res, err := http.Get("https://stream.wikimedia.org/v2/stream/recentchange")
 	if err != nil {
-		log.Fatalf("Error getting recent change stream: %v", err)
+		log.Printf("Error getting recent change stream: %v", err)
 		http.Error(w, "Error connecting to stream", http.StatusInternalServerError)
 		return
 	}
@@ -25,12 +28,18 @@ func GetStatus(w http.ResponseWriter, r *http.Request) {
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
+			// Idk if it ever ends, but if it does, exit :D
+			if err == io.EOF {
+				log.Println("Stream ended")
+				break
+			}
 			log.Printf("Error reading body: %v", err)
 			break
 		}
 
+		// We only care about the JSON from data
 		if strings.HasPrefix(line, "data:") {
-			jsonData := strings.TrimPrefix(line, "data: ")
+			jsonData := strings.TrimPrefix(line, "data:")
 			jsonData = strings.TrimSpace(jsonData)
 
 			var rc RecentChange
@@ -46,6 +55,8 @@ func GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// updateStats takes in a RecentChange struct,
+// which in return updates WikiStats
 func updateStats(rc RecentChange) {
 	stats.Mu.Lock()
 	defer stats.Mu.Unlock()
