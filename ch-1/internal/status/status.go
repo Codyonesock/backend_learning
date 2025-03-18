@@ -37,7 +37,6 @@ func GetStatus(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		// We only care about the JSON from data
 		if strings.HasPrefix(line, "data:") {
 			jsonData := strings.TrimPrefix(line, "data:")
 			jsonData = strings.TrimSpace(jsonData)

@@ -29,5 +29,5 @@ func main() {
 // * 	b. Number of distinct users
 // * 	c. Number of bots & Number of non-bots
 // * 	d. Count by distinct server URLs
-// ! 5. Create tests for your application (if you didn’t already)
+// * 5. Create tests for your application (if you didn’t already)
 // ! 6. Run tests with the race detector on (-race)
