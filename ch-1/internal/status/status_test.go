@@ -4,12 +4,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
 func TestGetStatus(t *testing.T) {
+	stats.Mu.Lock()
+	stats.WikiStats = stats.Stats{
+		DistinctUsers:      make(map[string]int),
+		DistinctServerURLs: make(map[string]int),
+	}
+	stats.Mu.Unlock()
 
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/status", nil)
@@ -17,8 +22,6 @@ func TestGetStatus(t *testing.T) {
 	go func() {
 		GetStatus(recorder, req)
 	}()
-
-	time.Sleep(2 * time.Second)
 
 	if recorder.Code != http.StatusOK {
 		t.Errorf("expected status code %d, got %d", http.StatusOK, recorder.Code)
@@ -28,10 +31,12 @@ func TestGetStatus(t *testing.T) {
 }
 
 func TestUpdateStats(t *testing.T) {
+	stats.Mu.Lock()
 	stats.WikiStats = stats.Stats{
 		DistinctUsers:      make(map[string]int),
 		DistinctServerURLs: make(map[string]int),
 	}
+	stats.Mu.Unlock()
 
 	rc := RecentChange{
 		User:      "blub",

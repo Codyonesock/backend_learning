@@ -24,6 +24,7 @@ func TestGetStats(t *testing.T) {
 		t.Errorf("expected status code %d, got %d", http.StatusOK, recorder.Code)
 	}
 
+	// StatsResponse value
 	expectedBody := `{"messages_consumed":10,"distinct_users":2,"bots_count":4,"non_bots_count":6,"distinct_server_urls":1}`
 	if recorder.Body.String() != expectedBody {
 		t.Errorf("expected body %s, got %s", expectedBody, recorder.Body.String())
