@@ -20,7 +20,7 @@ func TestGetStatus(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/status", nil)
 
 	go func() {
-		GetStatus(recorder, req)
+		GetStatus(recorder, req, "") // TODO: Fix the tests
 	}()
 
 	if recorder.Code != http.StatusOK {

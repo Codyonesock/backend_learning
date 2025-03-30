@@ -18,7 +18,6 @@ var (
 	}
 )
 
-// GetStats handles /stats, it returns the updated StatsResponse data
 func GetStats(w http.ResponseWriter, r *http.Request) {
 	Mu.Lock()
 	defer Mu.Unlock()

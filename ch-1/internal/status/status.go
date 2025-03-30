@@ -12,10 +12,10 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
-// GetStatus handles /status, it reads recentchange updates from Wikimedia
+// GetStatus handles /status, it reads recentchange updates from  Wikimedia
 // It processes events from the stream and updates stats
-func GetStatus(w http.ResponseWriter, r *http.Request) {
-	res, err := http.Get("https://stream.wikimedia.org/v2/stream/recentchange")
+func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string) {
+	res, err := http.Get(streamURL)
 	if err != nil {
 		log.Printf("Error getting recent change stream: %v", err)
 		http.Error(w, "Error connecting to stream", http.StatusInternalServerError)
