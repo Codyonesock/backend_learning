@@ -37,12 +37,10 @@ func main() {
 		return
 	}
 
-	//# curl http://localhost:7000/status
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		status.GetStatus(w, r, config.StreamURL)
 	})
 
-	//# curl http://localhost:7000/stats
 	http.HandleFunc("/stats", stats.GetStats)
 
 	fmt.Printf("Server running on port %s\n", config.Port)

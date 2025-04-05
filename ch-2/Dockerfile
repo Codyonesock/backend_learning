@@ -1,18 +1,13 @@
-#* 1. Create a Dockerfile for your application
-#! 2. Build & run your dockerized application
-#! 3. Build a scratch container image of your application
-#! 4. Use a file to set all the configurable items like ports, URLs and anything else that can be dynamic, load these configs via the file
-
-# Build the app
+# Compile
 FROM golang:1.22 AS builder
 WORKDIR /app
-COPY ch-1/cmd/statusApp/ .
-RUN go build -o app .
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./ch-1/cmd/statusApp
 
-# Setup the container and run the app
+# Run
 FROM scratch
-WORKDIR /
-COPY --from=builder /app/app .
-COPY config.json /config.json
+COPY --from=builder /app/main /
+COPY --from=builder /app/config.json /
+COPY --from=golang:1.22 /etc/ssl/certs/ /etc/ssl/certs/
 EXPOSE 7000
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/main"]

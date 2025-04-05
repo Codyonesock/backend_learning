@@ -1,0 +1,11 @@
+version: "2"
+linters:
+  default: "all"
+  settings:
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/codyonesock
+  disable: []
