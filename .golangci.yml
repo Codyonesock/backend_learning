@@ -8,4 +8,15 @@ linters:
           allow:
             - $gostd
             - github.com/codyonesock
+            - github.com/go-chi
+            - go.uber.org/zap
+    exhaustruct:
+      exclude:
+        - '^net/http\.Server$'
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    varnamelen:
+      min-name-length: 1
   disable: []
