@@ -4,20 +4,21 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
 // GetStatus handles /status, it reads recentchange updates from  Wikimedia
 // It processes events from the stream and updates stats
-func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string) {
+func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string, logger *zap.Logger) {
 	res, err := http.Get(streamURL)
 	if err != nil {
-		log.Printf("Error getting recent change stream: %v", err)
+		logger.Error("Error getting recent change stream", zap.String("stream_url", streamURL), zap.Error(err))
 		http.Error(w, "Error connecting to stream", http.StatusInternalServerError)
 		return
 	}
@@ -28,12 +29,11 @@ func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string) {
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
-			// Idk if it ever ends, but if it does, exit :D
 			if err == io.EOF {
-				log.Println("Stream ended")
+				logger.Info("Stream ended")
 				break
 			}
-			log.Printf("Error reading body: %v", err)
+			logger.Error("Error reading body", zap.Error(err))
 			break
 		}
 
@@ -43,9 +43,9 @@ func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string) {
 
 			var rc RecentChange
 			if err := json.Unmarshal([]byte(jsonData), &rc); err != nil {
-				log.Printf("Error parsing: %v", err)
+				logger.Error("Error parsing JSON", zap.Error(err))
 			} else {
-				updateStats(rc)
+				updateStats(rc, logger)
 			}
 
 			// Spam annoying :(
@@ -56,7 +56,7 @@ func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string) {
 
 // updateStats takes in a RecentChange struct,
 // which in return updates WikiStats
-func updateStats(rc RecentChange) {
+func updateStats(rc RecentChange, logger *zap.Logger) {
 	stats.Mu.Lock()
 	defer stats.Mu.Unlock()
 
@@ -69,4 +69,6 @@ func updateStats(rc RecentChange) {
 	} else {
 		stats.WikiStats.NonBotsCount++
 	}
+
+	logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
 }

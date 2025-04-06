@@ -2,9 +2,10 @@ package stats
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 	}
 )
 
-func GetStats(w http.ResponseWriter, r *http.Request) {
+func GetStats(w http.ResponseWriter, r *http.Request, logger *zap.Logger) {
 	Mu.Lock()
 	defer Mu.Unlock()
 
@@ -32,5 +33,5 @@ func GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 	statsJSON, _ := json.Marshal(response)
 	w.Write(statsJSON)
-	fmt.Println(string(statsJSON))
+	logger.Info("Current stats", zap.Any("response", response))
 }
