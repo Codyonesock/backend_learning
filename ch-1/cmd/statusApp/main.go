@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
@@ -51,26 +52,23 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+	r := chi.NewRouter()
+
+	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
 		status.GetStatus(w, r, config.StreamURL, logger)
 	})
 
-	http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/stats", func(w http.ResponseWriter, r *http.Request) {
 		stats.GetStats(w, r, logger)
 	})
 
 	logger.Info("Server running", zap.String("port", config.Port))
-	if err := http.ListenAndServe(config.Port, nil); err != nil {
+	if err := http.ListenAndServe(config.Port, r); err != nil {
 		logger.Fatal("Error starting server", zap.Error(err))
 		os.Exit(1)
 	}
 }
 
-//* 0. Finish setting up an initial dockerfile
-//* 1. Structured Logging (Zap, zerolog, log, fast)
-//! 2. Service pattern (receiver methods)
-//! 3. Split out into proper entities (Getting rid of modules)
-//! 4. Storage package agnostic/abstracted (Plug and play DB)
-//! 5. Evaluate Golang routers (chi, mux, httprouter)
-//! 6. Fix linting issues :')
-//! 7. Fix the tests :D
+//! 1. Update to service pattern (receiver methods)
+//! 2. Fix linting issues :')
+//! 3. Fix the tests :D
