@@ -15,5 +15,5 @@ A simple Go based app that processes a data stream and outputs statistics.
 This chapter involves getting the app running in a scratch Docker container
 
 ###### CMD
-  - `docker build -t statusapp -f .\ch-2\Dockerfile .`
+  - `docker build -t statusapp -f ./ch-2/Dockerfile .`
   - `docker run -p 7000:7000 statusapp`

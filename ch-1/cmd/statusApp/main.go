@@ -62,8 +62,6 @@ func main() {
 		}
 	}()
 
-	logger.Info("Starting StatusApp")
-
 	config, err := loadConfig("config.json", logger)
 
 	if err != nil {
@@ -74,8 +72,12 @@ func main() {
 
 	r := chi.NewRouter()
 
+	statusService := status.NewStatusService(logger)
 	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
-		status.GetStatus(w, r, config.StreamURL, logger)
+		err := statusService.ProcessStream(config.StreamURL)
+		if err != nil {
+			http.Error(w, "Error processing stream", http.StatusInternalServerError)
+		}
 	})
 
 	r.Get("/stats", func(w http.ResponseWriter, r *http.Request) {
@@ -98,4 +100,4 @@ func main() {
 
 //! 1. Update to service pattern (receiver methods)
 //! 2. Fix linting issues :')
-//! 3. Fix the tests :D
+//! 3. Fix the tests (Tests should stil pass with -race flag) :D

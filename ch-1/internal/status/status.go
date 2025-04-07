@@ -13,14 +13,35 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
-// GetStatus handles /status, it reads recentchange updates from  Wikimedia
-// It processes events from the stream and updates stats
-func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string, logger *zap.Logger) {
+// StatusServiceInterface defines methods for StatusService
+type StatusServiceInterface interface {
+	ProcessStream(streamURL string) error
+	UpdateStats(rc RecentChange)
+}
+
+// StatusService handles dependencies
+type StatusService struct {
+	Logger *zap.Logger
+}
+
+// NewStatusService create a new instance of StatusService
+func NewStatusService(l *zap.Logger) *StatusService {
+	return &StatusService{Logger: l}
+}
+
+// RecentChange is based on event data from Wikimedia
+type RecentChange struct {
+	User      string `json:"user"`
+	Bot       bool   `json:"bot"`
+	ServerURL string `json:"server_url"`
+}
+
+// ProcessStream reads the recent change stream and updates stats
+func (s *StatusService) ProcessStream(streamURL string) error {
 	res, err := http.Get(streamURL)
 	if err != nil {
-		logger.Error("Error getting recent change stream", zap.String("stream_url", streamURL), zap.Error(err))
-		http.Error(w, "Error connecting to stream", http.StatusInternalServerError)
-		return
+		s.Logger.Error("Error getting recent change stream", zap.String("stream_url", streamURL), zap.Error(err))
+		return err
 	}
 	defer res.Body.Close()
 
@@ -30,11 +51,11 @@ func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string, logger 
 		line, err := br.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				logger.Info("Stream ended")
+				s.Logger.Info("Stream ended")
 				break
 			}
-			logger.Error("Error reading body", zap.Error(err))
-			break
+			s.Logger.Error("Error reading body", zap.Error(err))
+			return err
 		}
 
 		if strings.HasPrefix(line, "data:") {
@@ -43,20 +64,21 @@ func GetStatus(w http.ResponseWriter, r *http.Request, streamURL string, logger 
 
 			var rc RecentChange
 			if err := json.Unmarshal([]byte(jsonData), &rc); err != nil {
-				logger.Error("Error parsing JSON", zap.Error(err))
+				s.Logger.Error("Error parsing JSON", zap.Error(err))
 			} else {
-				updateStats(rc, logger)
+				s.UpdateStats(rc)
 			}
 
 			// Spam annoying :(
 			time.Sleep(5 * time.Second)
 		}
 	}
+
+	return nil
 }
 
-// updateStats takes in a RecentChange struct,
-// which in return updates WikiStats
-func updateStats(rc RecentChange, logger *zap.Logger) {
+// UpdateStats updates the WikiStats with the given RecentChange
+func (s *StatusService) UpdateStats(rc RecentChange) {
 	stats.Mu.Lock()
 	defer stats.Mu.Unlock()
 
@@ -70,5 +92,5 @@ func updateStats(rc RecentChange, logger *zap.Logger) {
 		stats.WikiStats.NonBotsCount++
 	}
 
-	logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
+	s.Logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
 }
