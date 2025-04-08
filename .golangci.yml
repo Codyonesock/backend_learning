@@ -19,4 +19,5 @@ linters:
           json: snake
     varnamelen:
       min-name-length: 1
-  disable: []
+  disable:
+    - nlreturn
