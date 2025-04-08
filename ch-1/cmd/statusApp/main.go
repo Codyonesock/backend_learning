@@ -72,7 +72,9 @@ func main() {
 
 	r := chi.NewRouter()
 
-	statusService := status.NewStatusService(logger)
+	var statusService status.StatusServiceInterface
+	statusService = status.NewStatusService(logger)
+
 	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
 		err := statusService.ProcessStream(config.StreamURL)
 		if err != nil {

@@ -25,7 +25,7 @@ type StatusService struct {
 }
 
 // NewStatusService create a new instance of StatusService
-func NewStatusService(l *zap.Logger) *StatusService {
+func NewStatusService(l *zap.Logger) StatusServiceInterface {
 	return &StatusService{Logger: l}
 }
 
