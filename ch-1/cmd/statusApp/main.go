@@ -31,7 +31,6 @@ func loadConfig(filename string, logger *zap.Logger) (*config, error) {
 	data, err := os.ReadFile("config.json")
 	if err != nil {
 		logger.Error("Error reading config file", zap.String("filename", filename), zap.Error(err))
-
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
@@ -40,7 +39,6 @@ func loadConfig(filename string, logger *zap.Logger) (*config, error) {
 
 	if err != nil {
 		logger.Error("Error unmarshalling JSON", zap.Error(err))
-
 		return nil, fmt.Errorf("error unmarshalling JSON: %w", err)
 	}
 
@@ -66,16 +64,14 @@ func main() {
 
 	if err != nil {
 		logger.Fatal("Error loading config", zap.Error(err))
-
 		return
 	}
 
 	r := chi.NewRouter()
 
-	var statusService status.StatusServiceInterface
-	statusService = status.NewStatusService(logger)
+	var statusService status.ServiceInterface = status.NewStatusService(logger)
 
-	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
 		err := statusService.ProcessStream(config.StreamURL)
 		if err != nil {
 			http.Error(w, "Error processing stream", http.StatusInternalServerError)
