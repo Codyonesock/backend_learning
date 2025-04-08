@@ -95,7 +95,3 @@ func main() {
 		logger.Fatal("Error starting server", zap.Error(err))
 	}
 }
-
-//! 1. Update to service pattern (receiver methods)
-//! 2. Fix linting issues :')
-//! 3. Fix the tests (Tests should stil pass with -race flag) :D
