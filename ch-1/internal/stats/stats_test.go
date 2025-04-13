@@ -1,4 +1,4 @@
-package stats
+package stats_test
 
 // import (
 // 	"net/http"

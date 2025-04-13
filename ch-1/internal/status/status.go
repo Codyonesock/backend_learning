@@ -14,36 +14,32 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/models"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
 // ServiceInterface defines methods for Service.
 type ServiceInterface interface {
 	ProcessStream(streamURL string) error
-	UpdateStats(rc RecentChange)
 }
 
-// Service handles dependencies.
+// Service handles dependencies and config.
 type Service struct {
-	Logger *zap.Logger
+	Logger         *zap.Logger
+	StatsInterface stats.ServiceInterface
+	SleepTime      time.Duration
+	ContextTimeout time.Duration
 }
 
 // NewStatusService create a new instance of Service.
-func NewStatusService(l *zap.Logger) *Service {
-	return &Service{Logger: l}
+func NewStatusService(l *zap.Logger, si stats.ServiceInterface, st, ct time.Duration) *Service {
+	return &Service{
+		Logger:         l,
+		StatsInterface: si,
+		SleepTime:      st,
+		ContextTimeout: ct,
+	}
 }
-
-// RecentChange is based on event data from Wikimedia.
-type RecentChange struct {
-	User      string `json:"user"`
-	Bot       bool   `json:"bot"`
-	ServerURL string `json:"server_url"`
-}
-
-const (
-	sleepTime      = 5
-	contextTimeout = 10
-)
 
 // ProcessStream reads the recent change stream and updates stats.
 func (s *Service) ProcessStream(streamURL string) error {
@@ -52,7 +48,7 @@ func (s *Service) ProcessStream(streamURL string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), s.ContextTimeout)
 	defer cancel()
 
 	res, err := s.fetchStream(ctx, parsedURL)
@@ -115,7 +111,10 @@ func (s *Service) processStreamData(body io.Reader) error {
 		}
 
 		if strings.HasPrefix(line, "data:") {
-			s.handleStreamData(line)
+			if err := s.handleStreamData(line); err != nil {
+				s.Logger.Error("Error with stream", zap.Error(err))
+				return fmt.Errorf("error with stream: %w", err)
+			}
 		}
 	}
 
@@ -123,35 +122,18 @@ func (s *Service) processStreamData(body io.Reader) error {
 }
 
 // handleStreamData takes in lines of data from the stream to update the stats.
-func (s *Service) handleStreamData(line string) {
+func (s *Service) handleStreamData(line string) error {
 	jsonData := strings.TrimPrefix(line, "data:")
 	jsonData = strings.TrimSpace(jsonData)
 
-	var rc RecentChange
+	var rc models.RecentChange
 	if err := json.Unmarshal([]byte(jsonData), &rc); err != nil {
 		s.Logger.Error("Error parsing JSON", zap.Error(err))
-	} else {
-		s.UpdateStats(rc)
+		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
-	// Spam annoying :(
-	time.Sleep(sleepTime * time.Second)
-}
+	s.StatsInterface.UpdateStats(rc)
+	time.Sleep(s.SleepTime) // Spam annoying :(
 
-// UpdateStats updates the WikiStats with the given RecentChange.
-func (s *Service) UpdateStats(rc RecentChange) {
-	stats.Mu.Lock()
-	defer stats.Mu.Unlock()
-
-	stats.WikiStats.MessagesConsumed++
-	stats.WikiStats.DistinctUsers[rc.User]++
-	stats.WikiStats.DistinctServerURLs[rc.ServerURL]++
-
-	if rc.Bot {
-		stats.WikiStats.BotsCount++
-	} else {
-		stats.WikiStats.NonBotsCount++
-	}
-
-	s.Logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
+	return nil
 }

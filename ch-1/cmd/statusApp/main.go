@@ -17,9 +17,11 @@ import (
 )
 
 const (
-	readTimeout  = 10 * time.Second
-	writeTimeout = 10 * time.Second
-	idleTimeout  = 10 * time.Second
+	readTimeout    = 10 * time.Second
+	writeTimeout   = 10 * time.Second
+	idleTimeout    = 10 * time.Second
+	sleepTimeout   = 5 * time.Second
+	contextTimeout = 10 * time.Second
 )
 
 type config struct {
@@ -27,29 +29,26 @@ type config struct {
 	StreamURL string `json:"stream_url"`
 }
 
-func loadConfig(filename string, logger *zap.Logger) (*config, error) {
+func loadConfig(filename string, l *zap.Logger) (*config, error) {
 	data, err := os.ReadFile("config.json")
 	if err != nil {
-		logger.Error("Error reading config file", zap.String("filename", filename), zap.Error(err))
+		l.Error("Error reading config file", zap.String("filename", filename), zap.Error(err))
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	var config config
-	err = json.Unmarshal(data, &config)
-
-	if err != nil {
-		logger.Error("Error unmarshalling JSON", zap.Error(err))
+	if err := json.Unmarshal(data, &config); err != nil {
+		l.Error("Error unmarshalling JSON", zap.Error(err))
 		return nil, fmt.Errorf("error unmarshalling JSON: %w", err)
 	}
 
-	logger.Info("Config loaded", zap.String("port", config.Port), zap.String("stream_url", config.StreamURL))
+	l.Info("Config loaded", zap.String("port", config.Port), zap.String("stream_url", config.StreamURL))
 
 	return &config, nil
 }
 
 func main() {
 	logger, err := zap.NewProduction()
-
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 	}
@@ -61,7 +60,6 @@ func main() {
 	}()
 
 	config, err := loadConfig("config.json", logger)
-
 	if err != nil {
 		logger.Fatal("Error loading config", zap.Error(err))
 		return
@@ -69,17 +67,21 @@ func main() {
 
 	r := chi.NewRouter()
 
-	var statusService status.ServiceInterface = status.NewStatusService(logger)
+	var (
+		statsService  stats.ServiceInterface  = stats.NewStatsService(logger)
+		statusService status.ServiceInterface = status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
+	)
 
 	r.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
-		err := statusService.ProcessStream(config.StreamURL)
-		if err != nil {
+		if err := statusService.ProcessStream(config.StreamURL); err != nil {
 			http.Error(w, "Error processing stream", http.StatusInternalServerError)
 		}
 	})
 
-	r.Get("/stats", func(w http.ResponseWriter, r *http.Request) {
-		stats.GetStats(w, r, logger)
+	r.Get("/stats", func(w http.ResponseWriter, _ *http.Request) {
+		if err := statsService.GetStats(w); err != nil {
+			http.Error(w, "Error getting stats", http.StatusInternalServerError)
+		}
 	})
 
 	logger.Info("Server running", zap.String("port", config.Port))
