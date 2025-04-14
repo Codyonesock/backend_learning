@@ -1,64 +1,71 @@
 package status_test
 
-// import (
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 
-// 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
-// )
+	"go.uber.org/zap"
 
-// func TestGetStatus(t *testing.T) {
-// 	stats.Mu.Lock()
-// 	stats.WikiStats = stats.Stats{
-// 		DistinctUsers:      make(map[string]int),
-// 		DistinctServerURLs: make(map[string]int),
-// 	}
-// 	stats.Mu.Unlock()
+	"github.com/codyonesock/backend_learning/ch-1/internal/models"
+	"github.com/codyonesock/backend_learning/ch-1/internal/status"
+)
 
-// 	recorder := httptest.NewRecorder()
-// 	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+type MockStatsInterface struct {
+	UpdatedChanges []models.RecentChange
+}
 
-// 	go func() {
-// 		GetStatus(recorder, req, "")
-// 	}()
+func (m *MockStatsInterface) UpdateStats(rc models.RecentChange) {
+	m.UpdatedChanges = append(m.UpdatedChanges, rc)
+}
 
-// 	if recorder.Code != http.StatusOK {
-// 		t.Errorf("expected status code %d, got %d", http.StatusOK, recorder.Code)
-// 	}
+func (m *MockStatsInterface) GetStats(_ http.ResponseWriter) error {
+	return nil // No-op - make the stats interface happy
+}
 
-// 	t.Log("TestGetStatus completed")
-// }
+// TestProcessStream sets up a mock stats interface and
+// uses it to test processing that stream, verifying it at the end.
+func TestProcessStream(t *testing.T) {
+	t.Parallel()
 
-// func TestUpdateStats(t *testing.T) {
-// 	stats.Mu.Lock()
-// 	stats.WikiStats = stats.Stats{
-// 		DistinctUsers:      make(map[string]int),
-// 		DistinctServerURLs: make(map[string]int),
-// 	}
-// 	stats.Mu.Unlock()
+	// We need a mock StatsInterface to pass to Status
+	mockStats := &MockStatsInterface{
+		UpdatedChanges: []models.RecentChange{},
+	}
 
-// 	rc := RecentChange{
-// 		User:      "blub",
-// 		ServerURL: "https://blub.com",
-// 		Bot:       false,
-// 	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
 
-// 	updateStats(rc)
+		if _, err := w.Write([]byte(
+			"data: {\"user\":\"blub_user\",\"bot\":false,\"server_url\":\"https://blub.com\"}\n"),
+		); err != nil {
+			t.Fatalf("unexpected write error: %v", err)
+		}
+	}))
+	defer server.Close()
 
-// 	if stats.WikiStats.MessagesConsumed != 1 {
-// 		t.Errorf("expected MessagesConsumed to be 1, got %d", stats.WikiStats.MessagesConsumed)
-// 	}
-// 	if stats.WikiStats.DistinctUsers["blub"] != 1 {
-// 		t.Errorf("expected DistinctUsers[blub] to be 1, got %d", stats.WikiStats.DistinctUsers["blub"])
-// 	}
-// 	if stats.WikiStats.DistinctServerURLs["https://blub.com"] != 1 {
-// 		t.Errorf("expected DistinctServerURLs[https://blub.com] to be 1, got %d", stats.WikiStats.DistinctServerURLs["https://blub.com"])
-// 	}
-// 	if stats.WikiStats.NonBotsCount != 1 {
-// 		t.Errorf("expected NonBotsCount to be 1, got %d", stats.WikiStats.NonBotsCount)
-// 	}
-// 	if stats.WikiStats.BotsCount != 0 {
-// 		t.Errorf("expected BotsCount to be 0, got %d", stats.WikiStats.BotsCount)
-// 	}
-// }
+	logger := zap.NewNop()
+	service := status.NewStatusService(logger, mockStats, 1*time.Second, 5*time.Second)
+
+	if err := service.ProcessStream(server.URL); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mockStats.UpdatedChanges) != 1 {
+		t.Fatalf("expected 1 update, got %d", len(mockStats.UpdatedChanges))
+	}
+
+	rc := mockStats.UpdatedChanges[0]
+	if rc.User != "blub_user" {
+		t.Errorf("expected user to be 'blub_user', got '%s'", rc.User)
+	}
+
+	if rc.Bot {
+		t.Errorf("expected bot to be false, got true")
+	}
+
+	if rc.ServerURL != "https://blub.com" {
+		t.Errorf("expected server_url to be 'https://blub.com', got '%s'", rc.ServerURL)
+	}
+}

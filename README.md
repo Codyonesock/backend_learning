@@ -12,7 +12,7 @@ A simple Go based app that processes a data stream and outputs statistics.
 - `curl http://localhost:7000/stats`
 
 ###### Testing
-- `CGO_ENABLED=1 go test ./ch-1/internal/... -race -v`
+- `CGO_ENABLED=1 go test ./ch-1/internal/... -race`
 
 ## ch2
 This chapter involves getting the app running in a scratch Docker container
