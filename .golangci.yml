@@ -9,6 +9,7 @@ linters:
             - $gostd
             - github.com/codyonesock
             - github.com/go-chi
+            - github.com/kelseyhightower
             - go.uber.org/zap
     exhaustruct:
       exclude:

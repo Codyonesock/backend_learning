@@ -3,13 +3,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
@@ -25,26 +25,23 @@ const (
 )
 
 type config struct {
-	Port      string `json:"port"`
-	StreamURL string `json:"stream_url"`
+	Port      string `default:":7000"        envconfig:"PORT"`
+	StreamURL string `envconfig:"STREAM_URL" required:"true"`
 }
 
-func loadConfig(filename string, l *zap.Logger) (*config, error) {
-	data, err := os.ReadFile("config.json")
-	if err != nil {
-		l.Error("Error reading config file", zap.String("filename", filename), zap.Error(err))
-		return nil, fmt.Errorf("error reading config file: %w", err)
+func loadConfig(logger *zap.Logger) (*config, error) {
+	var cfg config
+	if err := envconfig.Process("", &cfg); err != nil {
+		logger.Error("Error loading environment variables", zap.Error(err))
+		return nil, fmt.Errorf("error loading environment variables: %w", err)
 	}
 
-	var config config
-	if err := json.Unmarshal(data, &config); err != nil {
-		l.Error("Error unmarshalling JSON", zap.Error(err))
-		return nil, fmt.Errorf("error unmarshalling JSON: %w", err)
-	}
+	logger.Info("Config loaded",
+		zap.String("port", cfg.Port),
+		zap.String("stream_url", cfg.StreamURL),
+	)
 
-	l.Info("Config loaded", zap.String("port", config.Port), zap.String("stream_url", config.StreamURL))
-
-	return &config, nil
+	return &cfg, nil
 }
 
 func main() {
@@ -59,7 +56,7 @@ func main() {
 		}
 	}()
 
-	config, err := loadConfig("config.json", logger)
+	config, err := loadConfig(logger)
 	if err != nil {
 		logger.Fatal("Error loading config", zap.Error(err))
 		return
