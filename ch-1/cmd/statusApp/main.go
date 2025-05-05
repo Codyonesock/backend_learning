@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/config"
+	"github.com/codyonesock/backend_learning/ch-1/internal/logger"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
@@ -24,28 +25,19 @@ const (
 	contextTimeout = 10 * time.Second
 )
 
-type config struct {
-	Port      string `default:":7000"        envconfig:"PORT"`
-	StreamURL string `envconfig:"STREAM_URL" required:"true"`
-}
-
-func loadConfig(logger *zap.Logger) (*config, error) {
-	var cfg config
-	if err := envconfig.Process("", &cfg); err != nil {
-		logger.Error("Error loading environment variables", zap.Error(err))
-		return nil, fmt.Errorf("error loading environment variables: %w", err)
+func main() {
+	// Remove this if you swap to build commands
+	tempLogger, err := zap.NewProduction()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize temp logger: %v\n", err)
 	}
 
-	logger.Info("Config loaded",
-		zap.String("port", cfg.Port),
-		zap.String("stream_url", cfg.StreamURL),
-	)
+	config, err := config.LoadConfig(tempLogger)
+	if err != nil {
+		tempLogger.Fatal("Error loading config", zap.Error(err))
+	}
 
-	return &cfg, nil
-}
-
-func main() {
-	logger, err := zap.NewProduction()
+	logger, err := logger.CreateLogger(config.LogLevel)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 	}
@@ -56,18 +48,12 @@ func main() {
 		}
 	}()
 
-	config, err := loadConfig(logger)
-	if err != nil {
-		logger.Fatal("Error loading config", zap.Error(err))
-		return
-	}
-
-	r := chi.NewRouter()
-
 	var (
 		statsService  stats.ServiceInterface  = stats.NewStatsService(logger)
 		statusService status.ServiceInterface = status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
 	)
+
+	r := chi.NewRouter()
 
 	r.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
 		if err := statusService.ProcessStream(config.StreamURL); err != nil {

@@ -14,6 +14,7 @@ linters:
     exhaustruct:
       exclude:
         - '^net/http\.Server$'
+        - '^zap.Config&'
     tagliatelle:
       case:
         rules:
