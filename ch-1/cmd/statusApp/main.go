@@ -13,6 +13,7 @@ import (
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/config"
 	"github.com/codyonesock/backend_learning/ch-1/internal/logger"
+	"github.com/codyonesock/backend_learning/ch-1/internal/routes"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
@@ -52,18 +53,7 @@ func main() {
 	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
 
 	r := chi.NewRouter()
-
-	r.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
-		if err := statusService.ProcessStream(config.StreamURL); err != nil {
-			http.Error(w, "Error processing stream", http.StatusInternalServerError)
-		}
-	})
-
-	r.Get("/stats", func(w http.ResponseWriter, _ *http.Request) {
-		if err := statsService.GetStats(w); err != nil {
-			http.Error(w, "Error getting stats", http.StatusInternalServerError)
-		}
-	})
+	routes.RegisterRoutes(r, statsService, statusService, config.StreamURL)
 
 	logger.Info("Server running", zap.String("port", config.Port))
 	server := &http.Server{
