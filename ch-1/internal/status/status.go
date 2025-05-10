@@ -18,11 +18,6 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
-// ServiceInterface defines methods for Service.
-type ServiceInterface interface {
-	ProcessStream(streamURL string) error
-}
-
 // Service handles dependencies and config.
 type Service struct {
 	Logger         *zap.Logger

@@ -26,15 +26,9 @@ const (
 )
 
 func main() {
-	// Remove this if you swap to build commands
-	tempLogger, err := zap.NewProduction()
+	config, err := config.LoadConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize temp logger: %v\n", err)
-	}
-
-	config, err := config.LoadConfig(tempLogger)
-	if err != nil {
-		tempLogger.Fatal("Error loading config", zap.Error(err))
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 	}
 
 	logger, err := logger.CreateLogger(config.LogLevel)
@@ -48,10 +42,14 @@ func main() {
 		}
 	}()
 
-	var (
-		statsService  stats.ServiceInterface  = stats.NewStatsService(logger)
-		statusService status.ServiceInterface = status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
+	logger.Info("Config loaded",
+		zap.String("port", config.Port),
+		zap.String("stream_url", config.StreamURL),
+		zap.String("log_level", config.LogLevel),
 	)
+
+	statsService := stats.NewStatsService(logger)
+	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
 
 	r := chi.NewRouter()
 

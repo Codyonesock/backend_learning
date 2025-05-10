@@ -2,31 +2,31 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/kelseyhightower/envconfig"
-	"go.uber.org/zap"
 )
 
-type config struct {
+var errInvalidStreamURL = errors.New("STREAM_URL is required but not set")
+
+// Config is your config.
+type Config struct {
 	Port      string `default:":7000"        envconfig:"PORT"`
 	StreamURL string `envconfig:"STREAM_URL" required:"true"`
-	LogLevel  string `default:"DEBUG"        envconfig:"LOG_LEVEL"`
+	LogLevel  string `default:"INFO"         envconfig:"LOG_LEVEL"`
 }
 
 // LoadConfig loads the application config.
-func LoadConfig(logger *zap.Logger) (*config, error) {
-	var cfg config
+func LoadConfig() (*Config, error) {
+	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
-		logger.Error("Error loading environment variables", zap.Error(err))
 		return nil, fmt.Errorf("error loading environment variables: %w", err)
 	}
 
-	logger.Info("Config loaded",
-		zap.String("port", cfg.Port),
-		zap.String("stream_url", cfg.StreamURL),
-		zap.String("log_level", cfg.LogLevel),
-	)
+	if cfg.StreamURL == "" {
+		return nil, fmt.Errorf("%w", errInvalidStreamURL)
+	}
 
 	return &cfg, nil
 }

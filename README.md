@@ -24,7 +24,8 @@ This chapter involves getting the app running in a scratch Docker container
 
 ###### Example Commands
   - `docker build -t statusapp -f ./ch-2/Dockerfile .`
-  - `docker run -p 7000:7000 statusapp`
+  - `docker run -p 7000:7000 statusapp` - Default LOG_LEVEL is INFO
+  - `docker run -p 7000:7000 -e LOG_LEVEL=ERROR statusapp`
 
 ## ch3
 Chapter 3 will involve bringing in a Scylla DB to persist the stats.

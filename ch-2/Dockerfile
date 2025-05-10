@@ -13,4 +13,5 @@ COPY --from=golang:1.22 /etc/ssl/certs/ /etc/ssl/certs/
 EXPOSE 7000
 ENV PORT=:7000
 ENV STREAM_URL=https://stream.wikimedia.org/v2/stream/recentchange
+ENV LOG_LEVEL=INFO
 ENTRYPOINT ["/main"]
