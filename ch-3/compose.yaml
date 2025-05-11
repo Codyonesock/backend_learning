@@ -1,0 +1,13 @@
+services:
+  scylla:
+    image: scylladb/scylla:latest
+    container_name: scylla
+    ports:
+      - "9042:9042" # Default Scylla DB port
+    volumes:
+      - scylla-data:/var/lib/scylla
+    environment:
+      - SCYLLA_CONF=/etc/scylla/scylla.yaml
+
+volumes:
+  scylla-data:

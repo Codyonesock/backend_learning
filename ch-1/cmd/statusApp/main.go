@@ -16,6 +16,7 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/routes"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
+	"github.com/codyonesock/backend_learning/ch-1/internal/users"
 )
 
 const (
@@ -51,9 +52,10 @@ func main() {
 
 	statsService := stats.NewStatsService(logger)
 	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
+	usersService := users.NewUserService(logger)
 
 	r := chi.NewRouter()
-	routes.RegisterRoutes(r, statsService, statusService, config.StreamURL)
+	routes.RegisterRoutes(r, config.StreamURL, statsService, statusService, usersService)
 
 	logger.Info("Server running", zap.String("port", config.Port))
 	server := &http.Server{

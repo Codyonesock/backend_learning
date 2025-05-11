@@ -1,6 +1,7 @@
 package status_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,8 +48,11 @@ func TestProcessStream(t *testing.T) {
 
 	logger := zap.NewNop()
 	service := status.NewStatusService(logger, mockStats, 1*time.Second, 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 
-	if err := service.ProcessStream(server.URL); err != nil {
+	defer cancel()
+
+	if err := service.ProcessStream(ctx, server.URL); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

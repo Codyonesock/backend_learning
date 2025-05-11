@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/models"
@@ -36,14 +37,28 @@ func NewStatusService(l *zap.Logger, si stats.ServiceInterface, st, ct time.Dura
 	}
 }
 
+// Handler returns the router for /status routes.
+func (s *Service) Handler(statusService *Service, streamURL string) http.Handler {
+	r := chi.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if err := statusService.ProcessStream(ctx, streamURL); err != nil {
+			s.Logger.Error("Error processing stream", zap.Error(err))
+			http.Error(w, "Error processing stream", http.StatusInternalServerError)
+		}
+	})
+
+	return r
+}
+
 // ProcessStream reads the recent change stream and updates stats.
-func (s *Service) ProcessStream(streamURL string) error {
+func (s *Service) ProcessStream(ctx context.Context, streamURL string) error {
 	parsedURL, err := s.validateStreamURL(streamURL)
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.ContextTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.ContextTimeout)
 	defer cancel()
 
 	res, err := s.fetchStream(ctx, parsedURL)
@@ -57,7 +72,7 @@ func (s *Service) ProcessStream(streamURL string) error {
 		}
 	}()
 
-	return s.processStreamData(res.Body)
+	return s.processStreamData(ctx, res.Body)
 }
 
 // validateStreamURL will validate a url.
@@ -89,31 +104,35 @@ func (s *Service) fetchStream(ctx context.Context, parsedURL *url.URL) (*http.Re
 }
 
 // processStreamData will attempt to process a stream body and pass the data to stats.
-func (s *Service) processStreamData(body io.Reader) error {
+func (s *Service) processStreamData(ctx context.Context, body io.Reader) error {
 	br := bufio.NewReader(body)
 
 	for {
-		line, err := br.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				s.Logger.Info("Stream ended")
-				break
+		select {
+		case <-ctx.Done():
+			s.Logger.Info("Stream processing canceled or timed out")
+			return fmt.Errorf("context canceled or timed out: %w", ctx.Err())
+		default:
+			line, err := br.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					s.Logger.Info("Stream ended")
+					break
+				}
+
+				s.Logger.Error("Error reading line", zap.Error(err))
+
+				return fmt.Errorf("error reading line: %w", err)
 			}
 
-			s.Logger.Error("Error reading line", zap.Error(err))
-
-			return fmt.Errorf("error reading line: %w", err)
-		}
-
-		if strings.HasPrefix(line, "data:") {
-			if err := s.handleStreamData(line); err != nil {
-				s.Logger.Error("Error with stream", zap.Error(err))
-				return fmt.Errorf("error with stream: %w", err)
+			if strings.HasPrefix(line, "data:") {
+				if err := s.handleStreamData(line); err != nil {
+					s.Logger.Error("Error with stream", zap.Error(err))
+					return fmt.Errorf("error with stream: %w", err)
+				}
 			}
 		}
 	}
-
-	return nil
 }
 
 // handleStreamData takes in lines of data from the stream to update the stats.

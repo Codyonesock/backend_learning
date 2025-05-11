@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/models"
@@ -56,6 +57,19 @@ func NewStatsService(l *zap.Logger) *Service {
 			DistinctServerURLs: map[string]int{},
 		},
 	}
+}
+
+// Handler returns the router for /stats routes.
+func (s *Service) Handler(statsService *Service) http.Handler {
+	r := chi.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
+		if err := statsService.GetStats(w); err != nil {
+			s.Logger.Error("Error getting stats", zap.Error(err))
+			http.Error(w, "Error getting stats", http.StatusInternalServerError)
+		}
+	})
+
+	return r
 }
 
 // UpdateStats updates the Stats with the given RecentChange.
