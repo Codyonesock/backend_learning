@@ -18,7 +18,11 @@ func RegisterRoutes(
 	userService *users.Service,
 ) {
 	r.Mount("/status", statusService.Handler(statusService, streamURL))
-	r.Mount("/stats", statsService.Handler(statsService))
+
+	r.Route("/stats", func(r chi.Router) {
+		r.Use(userService.AuthMiddleware)
+		r.Get("/", statsService.Handler(statsService).ServeHTTP)
+	})
 
 	r.Route("/users", func(r chi.Router) {
 		r.Post("/register", userService.RegisterHandler)

@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	readTimeout    = 10 * time.Second
-	writeTimeout   = 10 * time.Second
-	idleTimeout    = 10 * time.Second
-	sleepTimeout   = 5 * time.Second
-	contextTimeout = 15 * time.Minute
+	readTimeout         = 10 * time.Second
+	writeTimeout        = 10 * time.Second
+	idleTimeout         = 10 * time.Second
+	sleepTimeout        = 5 * time.Second
+	contextTimeout      = 15 * time.Minute
+	authTokenExpiration = 24 * time.Hour
 )
 
 func main() {
@@ -52,7 +53,7 @@ func main() {
 
 	statsService := stats.NewStatsService(logger)
 	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
-	usersService := users.NewUserService(logger)
+	usersService := users.NewUserService(logger, config.JwtSecret, authTokenExpiration)
 
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r, config.StreamURL, statsService, statusService, usersService)

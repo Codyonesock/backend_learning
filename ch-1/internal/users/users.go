@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )
 
@@ -18,19 +21,27 @@ type User struct {
 
 // Service manages user sync.
 type Service struct {
-	logger *zap.Logger
-	mu     sync.Mutex
-	users  map[string]User
+	logger              *zap.Logger
+	mu                  sync.Mutex
+	users               map[string]User
+	jwtSecret           string
+	authTokenExpiration time.Duration
 }
 
 var errUserAlreadyExists = errors.New("user already exists")
 
 // NewUserService creates a new user service.
-func NewUserService(l *zap.Logger) *Service {
+func NewUserService(
+	l *zap.Logger,
+	jwt string,
+	authExp time.Duration,
+) *Service {
 	return &Service{
-		logger: l,
-		mu:     sync.Mutex{},
-		users:  make(map[string]User),
+		logger:              l,
+		mu:                  sync.Mutex{},
+		users:               make(map[string]User),
+		jwtSecret:           jwt,
+		authTokenExpiration: authExp,
 	}
 }
 
@@ -85,8 +96,25 @@ func (s *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": req.Username,
+		"exp":      time.Now().Add(s.authTokenExpiration).Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		s.logger.Error("Failed to generate token", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+
+		return
+	}
+
 	s.logger.Info("User logged in successfully", zap.String("username", req.Username))
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+
+	if _, err := w.Write([]byte(`{"token":"` + tokenString + `"}`)); err != nil {
+		s.logger.Error("Failed to write auth token", zap.Error(err))
+	}
 }
 
 // Register adds a new user to the service.
@@ -111,4 +139,35 @@ func (s *Service) Authenticate(username, password string) bool {
 	user, exists := s.users[username]
 
 	return exists && user.Password == password
+}
+
+// AuthMiddleware validates the JWT in the auth header.
+func (s *Service) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			s.logger.Warn("Missing or invalid Authorization header")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+
+			return []byte(s.jwtSecret), nil
+		})
+
+		if err != nil || !token.Valid {
+			s.logger.Warn("Invalid or expired token", zap.Error(err))
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
