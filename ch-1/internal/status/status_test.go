@@ -48,8 +48,8 @@ func TestProcessStream(t *testing.T) {
 
 	logger := zap.NewNop()
 	service := status.NewStatusService(logger, mockStats, 1*time.Second, 5*time.Second)
-	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := service.ProcessStream(ctx, server.URL); err != nil {

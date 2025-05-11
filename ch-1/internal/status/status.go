@@ -117,7 +117,7 @@ func (s *Service) processStreamData(ctx context.Context, body io.Reader) error {
 			if err != nil {
 				if err == io.EOF {
 					s.Logger.Info("Stream ended")
-					break
+					return nil
 				}
 
 				s.Logger.Error("Error reading line", zap.Error(err))

@@ -15,11 +15,11 @@ import (
 func TestRegisterHandler(t *testing.T) {
 	t.Parallel()
 
-	l := zap.NewNop()
-	s := users.NewUserService(l)
-
 	t.Run("successful registration", func(t *testing.T) {
 		t.Parallel()
+
+		l := zap.NewNop()
+		s := users.NewUserService(l)
 
 		reqBody, _ := json.Marshal(map[string]string{
 			"username": "blub",
@@ -37,6 +37,9 @@ func TestRegisterHandler(t *testing.T) {
 
 	t.Run("duplicate user", func(t *testing.T) {
 		t.Parallel()
+
+		l := zap.NewNop()
+		s := users.NewUserService(l)
 
 		if err := s.Register("blub", "pw123"); err != nil {
 			t.Fatalf("unexpected error during setup: %v", err)

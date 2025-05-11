@@ -24,7 +24,7 @@ const (
 	writeTimeout   = 10 * time.Second
 	idleTimeout    = 10 * time.Second
 	sleepTimeout   = 5 * time.Second
-	contextTimeout = 10 * time.Second
+	contextTimeout = 15 * time.Minute
 )
 
 func main() {
