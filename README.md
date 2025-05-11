@@ -25,7 +25,7 @@ export LOG_LEVEL=INFO
 - `CGO_ENABLED=1 go test ./ch-1/internal/... -race`
 
 ###### Linting
-- golangci-lint run ./...
+- `golangci-lint run ./...`
 
 ## ch2
 This chapter involves getting the app running in a scratch Docker container
@@ -39,6 +39,6 @@ This chapter involves getting the app running in a scratch Docker container
 Chapter 3 will involve bringing in a Scylla DB to persist the stats.
 
 ###### Example Commands
-- docker compose -f ./ch-3/compose.yaml up -d
-- docker compose -f ./ch-3/compose.yaml down
-- docker compose -f ./ch-3/compose.yaml ps
+- `docker compose -f ./ch-3/compose.yaml up -d`
+- `docker compose -f ./ch-3/compose.yaml down`
+- `docker compose -f ./ch-3/compose.yaml ps`
