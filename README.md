@@ -5,10 +5,13 @@ A simple Go based app that processes a data stream and outputs statistics.
 For this chapter, you'll need to configure a .env
 
 ###### .env example
+```
 PORT=:7000
 STREAM_URL=https://stream.wikimedia.org/v2/stream/recentchange
 LOG_LEVEL=INFO
 JWT_SECRET=super-secure-random-key
+USE_SCYLLA=TRUE
+```
 
 ###### Features
 - `/status`: Reads and processes recent changes from the stream.
@@ -42,6 +45,27 @@ This chapter involves getting the app running in a scratch Docker container
 Chapter 3 will involve bringing in a Scylla DB to persist the stats.
 
 ###### Example Commands
-- `docker compose -f ./ch-3/compose.yaml up -d`
-- `docker compose -f ./ch-3/compose.yaml down`
-- `docker compose -f ./ch-3/compose.yaml ps`
+- `docker compose -f ./ch-3/compose.yaml up -d` - Starts the Scylla DB.
+- `docker compose -f ./ch-3/compose.yaml down` - Stops the DB.
+- `docker compose -f ./ch-3/compose.yaml ps` - Verify DB is running.
+- `docker exec -it scylla cqlsh` - Access Scylla DB shell.
+
+###### Example Stats Schema and verification
+```
+CREATE KEYSPACE stats_data WITH replication = {
+  'class': 'SimpleStrategy',
+  'replication_factor': 1
+};
+
+CREATE TABLE stats_data.stats (
+  id UUID PRIMARY KEY,
+  messages_consumed int,
+  distinct_users map<text, int>,
+  bots_count int,
+  non_bots_count int,
+  distinct_server_urls map<text, int>
+);
+
+DESCRIBE KEYSPACE stats_data;
+DESCRIBE TABLE stats_data.stats;
+```

@@ -10,17 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/models"
+	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
+	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
 )
-
-// Stats holds the core data that comes from Wikimedia.
-type Stats struct {
-	MessagesConsumed   int            `json:"messages_consumed"`
-	DistinctUsers      map[string]int `json:"-"`
-	BotsCount          int            `json:"bots_count"`
-	NonBotsCount       int            `json:"non_bots_count"`
-	DistinctServerURLs map[string]int `json:"-"`
-}
 
 // Response returns all the counts in ints.
 type Response struct {
@@ -33,30 +25,59 @@ type Response struct {
 
 // ServiceInterface will be used to update the stats.
 type ServiceInterface interface {
-	UpdateStats(rc models.RecentChange)
+	UpdateStats(rc shared.RecentChange)
 	GetStats(w http.ResponseWriter) error
 }
 
 // Service handles dependencies.
 type Service struct {
-	Logger *zap.Logger
-	Mu     sync.Mutex
-	Stats  Stats
+	Logger  *zap.Logger
+	Mu      sync.Mutex
+	Stats   *shared.Stats
+	Storage storage.Storage
 }
 
 // NewStatsService create a new instance of Service.
-func NewStatsService(l *zap.Logger) *Service {
+func NewStatsService(l *zap.Logger, storage storage.Storage) *Service {
 	return &Service{
 		Logger: l,
 		Mu:     sync.Mutex{},
-		Stats: Stats{
+		Stats: &shared.Stats{
 			MessagesConsumed:   0,
 			DistinctUsers:      map[string]int{},
 			BotsCount:          0,
 			NonBotsCount:       0,
 			DistinctServerURLs: map[string]int{},
 		},
+		Storage: storage,
 	}
+}
+
+// SaveStats saves the current stats.
+func (s *Service) SaveStats() error {
+	s.Mu.Lock()
+	defer s.Mu.Lock()
+
+	if err := s.Storage.SaveStats(s.Stats); err != nil {
+		return fmt.Errorf("failed to save stats: %w", err)
+	}
+
+	return nil
+}
+
+// LoadStats loads the current stats.
+func (s *Service) LoadStats() error {
+	stats, err := s.Storage.LoadStats()
+	if err != nil {
+		return fmt.Errorf("failed to load stats: %w", err)
+	}
+
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	s.Stats = stats
+
+	return nil
 }
 
 // Handler returns the router for /stats routes.
@@ -73,7 +94,7 @@ func (s *Service) Handler(statsService *Service) http.Handler {
 }
 
 // UpdateStats updates the Stats with the given RecentChange.
-func (s *Service) UpdateStats(rc models.RecentChange) {
+func (s *Service) UpdateStats(rc shared.RecentChange) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 

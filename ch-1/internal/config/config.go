@@ -16,6 +16,7 @@ type Config struct {
 	StreamURL string `envconfig:"STREAM_URL" required:"true"`
 	LogLevel  string `default:"INFO"         envconfig:"LOG_LEVEL"`
 	JwtSecret string `envconfig:"JWT_SECRET" required:"true"`
+	UseScylla bool   `default:"false"        envconfig:"USE_SCYLLA"`
 }
 
 // LoadConfig loads the application config.

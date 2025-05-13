@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/models"
+	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
@@ -140,7 +140,7 @@ func (s *Service) handleStreamData(line string) error {
 	jsonData := strings.TrimPrefix(line, "data:")
 	jsonData = strings.TrimSpace(jsonData)
 
-	var rc models.RecentChange
+	var rc shared.RecentChange
 	if err := json.Unmarshal([]byte(jsonData), &rc); err != nil {
 		s.Logger.Error("Error parsing JSON", zap.Error(err))
 		return fmt.Errorf("error parsing JSON: %w", err)

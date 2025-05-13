@@ -16,6 +16,7 @@ import (
 	"github.com/codyonesock/backend_learning/ch-1/internal/routes"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
+	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
 	"github.com/codyonesock/backend_learning/ch-1/internal/users"
 )
 
@@ -29,15 +30,8 @@ const (
 )
 
 func main() {
-	config, err := config.LoadConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-	}
-
-	logger, err := logger.CreateLogger(config.LogLevel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-	}
+	config := loadConfig()
+	logger := initializeLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -49,12 +43,75 @@ func main() {
 		zap.String("port", config.Port),
 		zap.String("stream_url", config.StreamURL),
 		zap.String("log_level", config.LogLevel),
+		zap.Bool("use_scylla", config.UseScylla),
 	)
 
-	statsService := stats.NewStatsService(logger)
+	storageBackend := initializeStorage(config, logger)
+	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
+		defer scyllaStorage.Session.Close()
+	}
+
+	statsService := stats.NewStatsService(logger, storageBackend)
 	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
 	usersService := users.NewUserService(logger, config.JwtSecret, authTokenExpiration)
 
+	if config.UseScylla {
+		if err := statsService.LoadStats(); err != nil {
+			logger.Warn("Failed to load stats from Scylla", zap.Error(err))
+		}
+	}
+
+	startServer(config, logger, statsService, statusService, usersService)
+}
+
+// loadConfig loads the config.
+func loadConfig() *config.Config {
+	config, err := config.LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	return config
+}
+
+// initializeLogger sets up the zap logger.
+func initializeLogger(config *config.Config) *zap.Logger {
+	logger, err := logger.CreateLogger(config.LogLevel)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+
+	return logger
+}
+
+// initializeStorage sets up the storage backend (Scylla or in-memory).
+//
+//nolint:ireturn
+func initializeStorage(config *config.Config, logger *zap.Logger) storage.Storage {
+	if config.UseScylla {
+		scyllaStorage, err := storage.NewScyllaStorage([]string{"localhost:9042"}, "stats_data", logger)
+		if err != nil {
+			logger.Fatal("Failed to initialize Scylla storage", zap.Error(err))
+		}
+
+		return scyllaStorage
+	}
+
+	logger.Info("Using in-memory storage")
+
+	return storage.NewMemoryStorage()
+}
+
+// startServer starts the HTTP server with the provided services.
+func startServer(
+	config *config.Config,
+	logger *zap.Logger,
+	statsService *stats.Service,
+	statusService *status.Service,
+	usersService *users.Service,
+) {
 	r := chi.NewRouter()
 	routes.RegisterRoutes(r, config.StreamURL, statsService, statusService, usersService)
 

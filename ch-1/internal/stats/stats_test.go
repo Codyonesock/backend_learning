@@ -6,20 +6,71 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/models"
-	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"go.uber.org/zap"
+
+	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
+	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 )
 
-// TestUpdateStats simulates a recent change and
-// verifies an update was made successfully.
+// MockStorage is a mock implementation of the shared.Storage interface.
+type MockStorage struct {
+	SaveStatsFunc func(*shared.Stats) error
+	LoadStatsFunc func() (*shared.Stats, error)
+	Stats         *shared.Stats
+}
+
+func (m *MockStorage) SaveStats(stat *shared.Stats) error {
+	if m.SaveStatsFunc != nil {
+		return m.SaveStatsFunc(stat)
+	}
+
+	m.Stats = stat
+
+	return nil
+}
+
+func (m *MockStorage) LoadStats() (*shared.Stats, error) {
+	if m.LoadStatsFunc != nil {
+		return m.LoadStatsFunc()
+	}
+
+	if m.Stats == nil {
+		m.Stats = &shared.Stats{
+			MessagesConsumed:   0,
+			DistinctUsers:      map[string]int{},
+			BotsCount:          0,
+			NonBotsCount:       0,
+			DistinctServerURLs: map[string]int{},
+		}
+	}
+
+	return m.Stats, nil
+}
+
+// Helper function to create a new stats.Service with a mock storage.
+func newTestService(mockStorage *MockStorage) *stats.Service {
+	logger := zap.NewNop()
+	return stats.NewStatsService(logger, mockStorage)
+}
+
+// TestUpdateStats verifies that stats are updated correctly.
 func TestUpdateStats(t *testing.T) {
 	t.Parallel()
 
-	logger := zap.NewNop()
-	service := stats.NewStatsService(logger)
+	mockStorage := &MockStorage{
+		SaveStatsFunc: nil,
+		LoadStatsFunc: nil,
+		Stats: &shared.Stats{
+			MessagesConsumed:   0,
+			DistinctUsers:      map[string]int{},
+			BotsCount:          0,
+			NonBotsCount:       0,
+			DistinctServerURLs: map[string]int{},
+		},
+	}
+	service := newTestService(mockStorage)
 
-	rc := models.RecentChange{
+	rc := shared.RecentChange{
 		User:      "blub_user",
 		Bot:       false,
 		ServerURL: "https://blub.com",
@@ -58,15 +109,22 @@ func TestUpdateStats(t *testing.T) {
 func TestGetStats(t *testing.T) {
 	t.Parallel()
 
-	logger := zap.NewNop()
-	service := stats.NewStatsService(logger)
+	mockStorage := &MockStorage{
+		SaveStatsFunc: nil,
+		LoadStatsFunc: nil,
+		Stats: &shared.Stats{
+			MessagesConsumed:   10,
+			DistinctUsers:      map[string]int{"user1": 1, "user2": 2},
+			BotsCount:          4,
+			NonBotsCount:       6,
+			DistinctServerURLs: map[string]int{"https://blub.com": 3},
+		},
+	}
 
-	service.Stats = stats.Stats{
-		MessagesConsumed:   10,
-		DistinctUsers:      map[string]int{"user1": 1, "user2": 2},
-		BotsCount:          4,
-		NonBotsCount:       6,
-		DistinctServerURLs: map[string]int{"https://blub.com": 3},
+	service := newTestService(mockStorage)
+
+	if err := service.LoadStats(); err != nil {
+		t.Fatalf("failed to load stats: %v", err)
 	}
 
 	recorder := httptest.NewRecorder()

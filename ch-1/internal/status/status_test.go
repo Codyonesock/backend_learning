@@ -9,15 +9,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/models"
+	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
 
 type MockStatsInterface struct {
-	UpdatedChanges []models.RecentChange
+	UpdatedChanges []shared.RecentChange
 }
 
-func (m *MockStatsInterface) UpdateStats(rc models.RecentChange) {
+func (m *MockStatsInterface) UpdateStats(rc shared.RecentChange) {
 	m.UpdatedChanges = append(m.UpdatedChanges, rc)
 }
 
@@ -32,7 +32,7 @@ func TestProcessStream(t *testing.T) {
 
 	// We need a mock StatsInterface to pass to Status
 	mockStats := &MockStatsInterface{
-		UpdatedChanges: []models.RecentChange{},
+		UpdatedChanges: []shared.RecentChange{},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
