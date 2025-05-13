@@ -3,6 +3,7 @@ package storage
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gocql/gocql"
 	"go.uber.org/zap"
@@ -18,14 +19,36 @@ type ScyllaStorage struct {
 
 // NewScyllaStorage returns a ScyllaStorage struct or error.
 func NewScyllaStorage(hosts []string, keyspace string, logger *zap.Logger) (*ScyllaStorage, error) {
+	const (
+		maxAttempts = 10
+		retryDelay  = 3 * time.Second
+	)
+
+	var (
+		session *gocql.Session
+		err     error
+	)
+
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.Quorum
 
-	session, err := cluster.CreateSession()
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		session, err = cluster.CreateSession()
+		if err == nil {
+			break
+		}
+
+		logger.Warn("Failed to connect to Scylla, retrying...",
+			zap.Int("attempt", attempt),
+			zap.Error(err),
+		)
+		time.Sleep(retryDelay)
+	}
+
 	if err != nil {
-		logger.Error("Failed to connect to Scylla", zap.Error(err))
-		return nil, fmt.Errorf("failed to create Scylla session: %w", err)
+		logger.Error("Failed to connect to Scylla after retries", zap.Error(err))
+		return nil, fmt.Errorf("failed to create Scylla session after %d attempts: %w", maxAttempts, err)
 	}
 
 	return &ScyllaStorage{
@@ -84,6 +107,13 @@ func (s *ScyllaStorage) LoadStats() (*shared.Stats, error) {
 		&stats.NonBotsCount,
 		&stats.DistinctServerURLs,
 	)
+
+	if stats.DistinctUsers == nil {
+		stats.DistinctUsers = make(map[string]int)
+	}
+	if stats.DistinctServerURLs == nil {
+		stats.DistinctServerURLs = make(map[string]int)
+	}
 
 	if err != nil {
 		s.Logger.Error("Failed to load stats from Scylla", zap.Error(err))

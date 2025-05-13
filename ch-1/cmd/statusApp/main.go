@@ -87,7 +87,7 @@ func initializeLogger(config *config.Config) *zap.Logger {
 //nolint:ireturn
 func initializeStorage(config *config.Config, logger *zap.Logger) storage.Storage {
 	if config.UseScylla {
-		scyllaStorage, err := storage.NewScyllaStorage([]string{"localhost:9042"}, "stats_data", logger)
+		scyllaStorage, err := storage.NewScyllaStorage([]string{"scylla:9042"}, "stats_data", logger)
 		if err != nil {
 			logger.Fatal("Failed to initialize Scylla storage", zap.Error(err))
 		}

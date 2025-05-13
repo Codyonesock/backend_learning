@@ -42,12 +42,13 @@ This chapter involves getting the app running in a scratch Docker container
   - `docker run -p 7000:7000 -e LOG_LEVEL=ERROR statusapp`
 
 ## ch3
-Chapter 3 will involve bringing in a Scylla DB to persist the stats.
+Chapter 3 will involve bringing in a Scylla DB or in memory DB to persist the stats.
 
 ###### Example Commands
-- `docker compose -f ./ch-3/compose.yaml up -d` - Starts the Scylla DB.
-- `docker compose -f ./ch-3/compose.yaml down` - Stops the DB.
-- `docker compose -f ./ch-3/compose.yaml ps` - Verify DB is running.
+- `docker compose -f ./ch-3/compose.yaml up --build` - Starts the Scylla DB and StatusApp.
+- `docker compose -f ./ch-3/compose.yaml down` - Stops the DB and app.
+- `docker compose -f ./ch-3/compose.yaml ps` - Verify processes are running.
+- `docker compose -f ./ch-3/compose.yaml logs statusapp` - See app logs
 - `docker exec -it scylla cqlsh` - Access Scylla DB shell.
 
 ###### Example Stats Schema and verification

@@ -3,11 +3,28 @@ services:
     image: scylladb/scylla:latest
     container_name: scylla
     ports:
-      - "9042:9042" # Default Scylla DB port
+      - "9042:9042"
     volumes:
       - scylla-data:/var/lib/scylla
     environment:
       - SCYLLA_CONF=/etc/scylla/scylla.yaml
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "DESCRIBE KEYSPACES"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  statusapp:
+    build:
+      context: ..
+      dockerfile: ch-2/Dockerfile
+    depends_on:
+      scylla:
+        condition: service_healthy
+    ports:
+      - "7000:7000"
+    env_file:
+      - ../.env
 
 volumes:
   scylla-data:
