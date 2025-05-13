@@ -27,6 +27,7 @@ const (
 	sleepTimeout        = 5 * time.Second
 	contextTimeout      = 15 * time.Minute
 	authTokenExpiration = 24 * time.Hour
+	saveInterval        = 1 * time.Minute
 )
 
 func main() {
@@ -55,12 +56,7 @@ func main() {
 	statusService := status.NewStatusService(logger, statsService, sleepTimeout, contextTimeout)
 	usersService := users.NewUserService(logger, config.JwtSecret, authTokenExpiration)
 
-	if config.UseScylla {
-		if err := statsService.LoadStats(); err != nil {
-			logger.Warn("Failed to load stats from Scylla", zap.Error(err))
-		}
-	}
-
+	setupStatsPersistence(statsService, logger, config.UseScylla, saveInterval)
 	startServer(config, logger, statsService, statusService, usersService)
 }
 
@@ -102,6 +98,23 @@ func initializeStorage(config *config.Config, logger *zap.Logger) storage.Storag
 	logger.Info("Using in-memory storage")
 
 	return storage.NewMemoryStorage()
+}
+
+// setupStatsPersistence will start saving stats data based on interval
+// and if using scylla it will preload data.
+func setupStatsPersistence(
+	statsService *stats.Service,
+	logger *zap.Logger,
+	useScylla bool,
+	saveInterval time.Duration,
+) {
+	statsService.StartPeriodicSave(saveInterval)
+
+	if useScylla {
+		if err := statsService.LoadStats(); err != nil {
+			logger.Warn("Failed to load stats from Scylla", zap.Error(err))
+		}
+	}
 }
 
 // startServer starts the HTTP server with the provided services.

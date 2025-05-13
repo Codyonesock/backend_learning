@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -56,7 +57,7 @@ func NewStatsService(l *zap.Logger, storage storage.Storage) *Service {
 // SaveStats saves the current stats.
 func (s *Service) SaveStats() error {
 	s.Mu.Lock()
-	defer s.Mu.Lock()
+	defer s.Mu.Unlock()
 
 	if err := s.Storage.SaveStats(s.Stats); err != nil {
 		return fmt.Errorf("failed to save stats: %w", err)
@@ -80,6 +81,20 @@ func (s *Service) LoadStats() error {
 	return nil
 }
 
+// StartPeriodicSave will peridically save stats data.
+func (s *Service) StartPeriodicSave(interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := s.SaveStats(); err != nil {
+				s.Logger.Error("Failed to save stats periodically", zap.Error(err))
+			}
+		}
+	}()
+}
+
 // Handler returns the router for /stats routes.
 func (s *Service) Handler(statsService *Service) http.Handler {
 	r := chi.NewRouter()
@@ -96,7 +111,6 @@ func (s *Service) Handler(statsService *Service) http.Handler {
 // UpdateStats updates the Stats with the given RecentChange.
 func (s *Service) UpdateStats(rc shared.RecentChange) {
 	s.Mu.Lock()
-	defer s.Mu.Unlock()
 
 	s.Stats.MessagesConsumed++
 	s.Stats.DistinctUsers[rc.User]++
@@ -109,6 +123,11 @@ func (s *Service) UpdateStats(rc shared.RecentChange) {
 	}
 
 	s.Logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
+	s.Mu.Unlock()
+
+	if err := s.SaveStats(); err != nil {
+		s.Logger.Error("Failed to save stats after update", zap.Error(err))
+	}
 }
 
 // GetStats returns the current StatsResponse.

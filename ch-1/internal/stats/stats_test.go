@@ -58,7 +58,7 @@ func TestUpdateStats(t *testing.T) {
 	t.Parallel()
 
 	mockStorage := &MockStorage{
-		SaveStatsFunc: nil,
+		SaveStatsFunc: func(_ *shared.Stats) error { return nil },
 		LoadStatsFunc: nil,
 		Stats: &shared.Stats{
 			MessagesConsumed:   0,
@@ -77,9 +77,6 @@ func TestUpdateStats(t *testing.T) {
 	}
 
 	service.UpdateStats(rc)
-
-	service.Mu.Lock()
-	defer service.Mu.Unlock()
 
 	if service.Stats.MessagesConsumed != 1 {
 		t.Errorf("expected MessagesConsumed to be 1, got %d", service.Stats.MessagesConsumed)
