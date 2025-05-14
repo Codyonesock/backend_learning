@@ -111,6 +111,7 @@ func (s *ScyllaStorage) LoadStats() (*shared.Stats, error) {
 	if stats.DistinctUsers == nil {
 		stats.DistinctUsers = make(map[string]int)
 	}
+
 	if stats.DistinctServerURLs == nil {
 		stats.DistinctServerURLs = make(map[string]int)
 	}

@@ -48,8 +48,9 @@ Chapter 3 will involve bringing in a Scylla DB or in memory DB to persist the st
 - `docker compose -f ./ch-3/compose.yaml up --build` - Starts the Scylla DB and StatusApp.
 - `docker compose -f ./ch-3/compose.yaml down` - Stops the DB and app.
 - `docker compose -f ./ch-3/compose.yaml ps` - Verify processes are running.
-- `docker compose -f ./ch-3/compose.yaml logs statusapp` - See app logs
+- `docker compose -f ./ch-3/compose.yaml logs statusapp` - See app logs.
 - `docker exec -it scylla cqlsh` - Access Scylla DB shell.
+- `INTEGRATION=1 go test -tags=integration ./ch-1/internal/storage/...` - Run DB integration tests.
 
 ###### Example Stats Schema and verification
 ```
