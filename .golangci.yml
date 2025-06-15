@@ -25,3 +25,4 @@ linters:
       min-name-length: 1
   disable:
     - nlreturn
+    - tagalign

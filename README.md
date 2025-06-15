@@ -42,7 +42,7 @@ This chapter involves getting the app running in a scratch Docker container
   - `docker run -p 7000:7000 -e LOG_LEVEL=ERROR statusapp`
 
 ## ch3
-Chapter 3 will involve bringing in a Scylla DB or in memory DB to persist the stats.
+Chapter 3 adds in docker compose, auth and a database (Scylla DB or in memory DB) to persist the stats.
 
 ###### Example Commands
 - `docker compose -f ./ch-3/compose.yaml up --build` - Starts the Scylla DB and StatusApp.
@@ -71,3 +71,6 @@ CREATE TABLE stats_data.stats (
 DESCRIBE KEYSPACE stats_data;
 DESCRIBE TABLE stats_data.stats;
 ```
+
+## ch4
+Chapter 4 adds in github actions to run unit tests, go vet, go lint, integration tests before building and uploading an image to ghcr.
