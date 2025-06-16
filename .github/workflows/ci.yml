@@ -1,0 +1,98 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          path: .
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Create empty .env for Docker Compose
+        run: touch .env
+
+      - name: Ensure dependencies are downloaded
+        run: go mod download
+
+      - name: Run unit tests
+        run: CGO_ENABLED=1 go test ./ch-1/internal/... -race
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v2.0.2
+          echo "$PWD/bin" >> $GITHUB_PATH
+
+      - name: Run golangci-lint
+        run: golangci-lint run ./...
+
+      - name: Start ScyllaDB for integration tests
+        run: docker compose -f ch-3/compose.yaml up -d scylla
+
+      - name: Wait for ScyllaDB to be ready
+        timeout-minutes: 2
+        run: |
+          until docker exec $(docker ps -qf "name=scylla") cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; do
+            echo "Waiting for ScyllaDB..."
+            sleep 5
+          done
+
+      - name: Set up ScyllaDB schema
+        run: |
+          docker exec $(docker ps -qf "name=scylla") cqlsh -e "
+            CREATE KEYSPACE IF NOT EXISTS stats_data WITH replication = {
+              'class': 'SimpleStrategy',
+              'replication_factor': 1
+            };
+            CREATE TABLE IF NOT EXISTS stats_data.stats (
+              id UUID PRIMARY KEY,
+              messages_consumed int,
+              distinct_users map<text, int>,
+              bots_count int,
+              non_bots_count int,
+              distinct_server_urls map<text, int>
+            );
+          " | grep -v "SimpleStrategy replication class is not recommended" | grep -v "replication_factor=1 lower than the minimum_replication_factor_warn_threshold"
+
+
+      - name: Run integration tests
+        env:
+          INTEGRATION: 1
+          SCYLLA_HOST: localhost
+          SCYLLA_PORT: 9042
+        run: go test -tags=integration ./ch-1/internal/storage/...
+
+      - name: Stop ScyllaDB
+        if: always()
+        run: docker compose -f ch-3/compose.yaml down -v
+
+      - name: Build and push Docker image
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/${REPO_NAME}:latest -f ./ch-2/Dockerfile .
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push ghcr.io/${REPO_NAME}:latest
