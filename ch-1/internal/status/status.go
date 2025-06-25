@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
@@ -72,7 +73,11 @@ func (s *Service) ProcessStream(ctx context.Context, streamURL string) error {
 		}
 	}()
 
-	return s.processStreamData(ctx, res.Body)
+	processFunc := func(line string) error {
+		return s.handleStreamData(line)
+	}
+
+	return streamReader(ctx, res.Body, processFunc)
 }
 
 // validateStreamURL will validate a url.
@@ -103,38 +108,6 @@ func (s *Service) fetchStream(ctx context.Context, parsedURL *url.URL) (*http.Re
 	return res, nil
 }
 
-// processStreamData will attempt to process a stream body and pass the data to stats.
-func (s *Service) processStreamData(ctx context.Context, body io.Reader) error {
-	br := bufio.NewReader(body)
-
-	for {
-		select {
-		case <-ctx.Done():
-			s.Logger.Info("Stream processing canceled or timed out")
-			return fmt.Errorf("context canceled or timed out: %w", ctx.Err())
-		default:
-			line, err := br.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					s.Logger.Info("Stream ended")
-					return nil
-				}
-
-				s.Logger.Error("Error reading line", zap.Error(err))
-
-				return fmt.Errorf("error reading line: %w", err)
-			}
-
-			if strings.HasPrefix(line, "data:") {
-				if err := s.handleStreamData(line); err != nil {
-					s.Logger.Error("Error with stream", zap.Error(err))
-					return fmt.Errorf("error with stream: %w", err)
-				}
-			}
-		}
-	}
-}
-
 // handleStreamData takes in lines of data from the stream to update the stats.
 func (s *Service) handleStreamData(line string) error {
 	jsonData := strings.TrimPrefix(line, "data:")
@@ -150,4 +123,78 @@ func (s *Service) handleStreamData(line string) error {
 	time.Sleep(s.SleepTime) // Spam annoying :(
 
 	return nil
+}
+
+// StreamAndProduce reads the wikimedia stream and produces each event to Redpanda.
+func StreamAndProduce(ctx context.Context, streamURL string, producer *kgo.Client, log *zap.Logger) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, streamURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch stream from URL %s: %w", streamURL, err)
+	}
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Error("Error closing response body", zap.Error(err))
+		}
+	}()
+
+	processFunc := func(line string) error {
+		var rc shared.RecentChange
+		if err := json.Unmarshal([]byte(line[5:]), &rc); err != nil {
+			log.Warn("failed to unmarshal event", zap.Error(err))
+			return nil
+		}
+
+		eventBytes, err := json.Marshal(rc)
+		if err != nil {
+			log.Warn("failed to marshal event", zap.Error(err))
+			return nil
+		}
+
+		record := &kgo.Record{
+			Value: eventBytes,
+		}
+
+		producer.Produce(ctx, record, func(_ *kgo.Record, err error) {
+			if err != nil {
+				log.Warn("failed to produce to Redpanda", zap.Error(err))
+			}
+		})
+
+		return nil
+	}
+
+	return streamReader(ctx, resp.Body, processFunc)
+}
+
+// streamReader is a helper function that reads a stream and processes each line.
+func streamReader(ctx context.Context, streamBody io.Reader, processFunc func(line string) error) error {
+	br := bufio.NewReader(streamBody)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context canceled or timed out: %w", ctx.Err())
+		default:
+			line, err := br.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					return nil // End of stream
+				}
+
+				return fmt.Errorf("error reading line: %w", err)
+			}
+
+			if strings.HasPrefix(line, "data:") {
+				if err := processFunc(line); err != nil {
+					return fmt.Errorf("error processing stream data: %w", err)
+				}
+			}
+		}
+	}
 }

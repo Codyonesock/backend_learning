@@ -13,10 +13,12 @@ linters:
             - go.uber.org/zap
             - github.com/golang-jwt/jwt/v5
             - github.com/gocql/gocql
+            - github.com/twmb/franz-go/pkg/kgo
     exhaustruct:
       exclude:
         - '^net/http\.Server$'
         - '^go\.uber\.org/zap\.Config$'
+        - '.*kgo\.Record.*'
     tagliatelle:
       case:
         rules:
