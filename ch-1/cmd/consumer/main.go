@@ -1,3 +1,4 @@
+// Package main connets to Redpanda and consumes messages to process and update a stats db.
 package main
 
 import (
@@ -25,10 +26,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed to flush logger: %v\n", err)
 		}
 	}()
-
-	logger.Info("Config loaded",
-		zap.String("stream_url", config.StreamURL),
-	)
+	logger.Info("Config loaded", zap.String("stream_url", config.StreamURL))
 
 	storageBackend := appInit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
@@ -37,21 +35,35 @@ func main() {
 
 	// statsService := stats.NewStatsService(logger, storageBackend)
 
+	cl, err := setupKafkaClient()
+	if err != nil {
+		logger.Fatal("failed to create Redpanda client", zap.Error(err))
+	}
+	defer cl.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	handleShutdown(logger, cancel)
+
+	logger.Info("Consumer started, waiting for messages...")
+
+	processMessages(ctx, cl, logger)
+
+	logger.Info("Consumer exited cleanly")
+}
+
+func setupKafkaClient() (*kgo.Client, error) {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers("localhost:9092"), // TODO: Adjust for docker-compose
 		kgo.ConsumerGroup("wikimedia-consumer-group"),
 		kgo.ConsumeTopics("wikimedia-changes"),
 	)
 
-	if err != nil {
-		logger.Fatal("failed to create Redpanda client", zap.Error(err))
-	}
+	return cl, fmt.Errorf("error setting up redpanda client: %w", err)
+}
 
-	defer cl.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func handleShutdown(logger *zap.Logger, cancel context.CancelFunc) {
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -59,19 +71,16 @@ func main() {
 		logger.Info("Shutting down consumer...")
 		cancel()
 	}()
+}
 
-	logger.Info("Consumer started, waiting for messages...")
-
+func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger) {
 	for {
-		if ctx.Err() != nil {
-			break
-		}
-
 		fetches := cl.PollFetches(ctx)
 		if errs := fetches.Errors(); len(errs) > 0 {
 			for _, err := range errs {
 				logger.Warn("fetch error", zap.Error(err.Err))
 			}
+
 			continue
 		}
 
@@ -81,12 +90,11 @@ func main() {
 				logger.Warn("failed to unmarshal event", zap.Error(err))
 				return
 			}
+
 			// err := statsService.UpdateStats(ctx, rc)
 			// if err != nil {
 			// 	logger.Warn("failed to update stats", zap.Error(err))
 			// }
 		})
 	}
-
-	logger.Info("Consumer exited cleanly")
 }
