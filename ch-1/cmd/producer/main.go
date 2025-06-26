@@ -11,13 +11,13 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
+	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
 
 func main() {
-	config := appInit.MustLoadConfig()
-	logger := appInit.MustInitLogger(config)
+	config := appinit.MustLoadConfig()
+	logger := appinit.MustInitLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {

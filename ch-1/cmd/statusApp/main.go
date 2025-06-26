@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
+	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/config"
 	"github.com/codyonesock/backend_learning/ch-1/internal/routes"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
@@ -31,8 +31,8 @@ const (
 )
 
 func main() {
-	config := appInit.MustLoadConfig()
-	logger := appInit.MustInitLogger(config)
+	config := appinit.MustLoadConfig()
+	logger := appinit.MustInitLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -47,7 +47,7 @@ func main() {
 		zap.Bool("use_scylla", config.UseScylla),
 	)
 
-	storageBackend := appInit.MustInitStorage(config, logger)
+	storageBackend := appinit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
 		defer scyllaStorage.Session.Close()
 	}

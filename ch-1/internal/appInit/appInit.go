@@ -1,5 +1,5 @@
-// package appInit
-package appInit
+// Package appinit is a shared package for initializing services.
+package appinit
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ func MustLoadConfig() *config.Config {
 		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+
 	return cfg
 }
 
@@ -29,18 +30,24 @@ func MustInitLogger(cfg *config.Config) *zap.Logger {
 		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
 		os.Exit(1)
 	}
+
 	return log
 }
 
 // MustInitStorage initializes storage backend or uses in memory.
+//
+//nolint:ireturn
 func MustInitStorage(cfg *config.Config, log *zap.Logger) storage.Storage {
 	if cfg.UseScylla {
 		scyllaStorage, err := storage.NewScyllaStorage([]string{"scylla:9042"}, "stats_data", log)
 		if err != nil {
 			log.Fatal("Failed to initialize Scylla storage", zap.Error(err))
 		}
+
 		return scyllaStorage
 	}
+
 	log.Info("Using in-memory storage")
+
 	return storage.NewMemoryStorage()
 }

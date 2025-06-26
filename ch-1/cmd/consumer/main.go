@@ -9,18 +9,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
+	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
-	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 func main() {
-	config := appInit.MustLoadConfig()
-	logger := appInit.MustInitLogger(config)
+	config := appinit.MustLoadConfig()
+	logger := appinit.MustInitLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -29,7 +29,7 @@ func main() {
 	}()
 	logger.Info("Config loaded", zap.String("stream_url", config.StreamURL))
 
-	storageBackend := appInit.MustInitStorage(config, logger)
+	storageBackend := appinit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
 		defer scyllaStorage.Session.Close()
 	}
@@ -59,6 +59,7 @@ func setupKafkaClient() (*kgo.Client, error) {
 		kgo.SeedBrokers("localhost:9092"), // TODO: Adjust for docker-compose
 		kgo.ConsumerGroup("wikimedia-consumer-group"),
 		kgo.ConsumeTopics("wikimedia-changes"),
+		kgo.DisableAutoCommit(),
 	)
 
 	return cl, fmt.Errorf("error setting up redpanda client: %w", err)
@@ -91,17 +92,23 @@ func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger, st
 		}
 
 		var batch []shared.RecentChange
+
 		for _, record := range records {
 			var rc shared.RecentChange
 			if err := json.Unmarshal(record.Value, &rc); err != nil {
 				logger.Warn("failed to unmarshal event", zap.Error(err))
 				return
 			}
+
 			batch = append(batch, rc)
 		}
 
 		for _, rc := range batch {
 			statsService.UpdateStats(rc)
+		}
+
+		if err := cl.CommitRecords(ctx, records...); err != nil {
+			logger.Warn("failed to commit offsets", zap.Error(err))
 		}
 	}
 }
