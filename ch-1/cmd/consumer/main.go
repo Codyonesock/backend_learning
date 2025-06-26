@@ -85,14 +85,23 @@ func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger, st
 			continue
 		}
 
-		fetches.EachRecord(func(record *kgo.Record) {
+		records := fetches.Records()
+		if len(records) == 0 {
+			continue
+		}
+
+		var batch []shared.RecentChange
+		for _, record := range records {
 			var rc shared.RecentChange
 			if err := json.Unmarshal(record.Value, &rc); err != nil {
 				logger.Warn("failed to unmarshal event", zap.Error(err))
 				return
 			}
+			batch = append(batch, rc)
+		}
 
+		for _, rc := range batch {
 			statsService.UpdateStats(rc)
-		})
+		}
 	}
 }
