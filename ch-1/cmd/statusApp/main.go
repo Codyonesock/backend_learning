@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/config"
-	"github.com/codyonesock/backend_learning/ch-1/internal/logger"
 	"github.com/codyonesock/backend_learning/ch-1/internal/routes"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
@@ -31,8 +31,8 @@ const (
 )
 
 func main() {
-	config := loadConfig()
-	logger := initializeLogger(config)
+	config := appInit.MustLoadConfig()
+	logger := appInit.MustInitLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -47,7 +47,7 @@ func main() {
 		zap.Bool("use_scylla", config.UseScylla),
 	)
 
-	storageBackend := initializeStorage(config, logger)
+	storageBackend := appInit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
 		defer scyllaStorage.Session.Close()
 	}
@@ -58,46 +58,6 @@ func main() {
 
 	setupStatsPersistence(statsService, logger, config.UseScylla, saveInterval)
 	startServer(config, logger, statsService, statusService, usersService)
-}
-
-// loadConfig loads the config.
-func loadConfig() *config.Config {
-	config, err := config.LoadConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	return config
-}
-
-// initializeLogger sets up the zap logger.
-func initializeLogger(config *config.Config) *zap.Logger {
-	logger, err := logger.CreateLogger(config.LogLevel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
-	}
-
-	return logger
-}
-
-// initializeStorage sets up the storage backend (Scylla or in-memory).
-//
-//nolint:ireturn
-func initializeStorage(config *config.Config, logger *zap.Logger) storage.Storage {
-	if config.UseScylla {
-		scyllaStorage, err := storage.NewScyllaStorage([]string{"scylla:9042"}, "stats_data", logger)
-		if err != nil {
-			logger.Fatal("Failed to initialize Scylla storage", zap.Error(err))
-		}
-
-		return scyllaStorage
-	}
-
-	logger.Info("Using in-memory storage")
-
-	return storage.NewMemoryStorage()
 }
 
 // setupStatsPersistence will start saving stats data based on interval

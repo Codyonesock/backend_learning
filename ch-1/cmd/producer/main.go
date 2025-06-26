@@ -11,14 +11,13 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
-	"github.com/codyonesock/backend_learning/ch-1/internal/config"
-	"github.com/codyonesock/backend_learning/ch-1/internal/logger"
+	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
 
 func main() {
-	config := loadConfig()
-	logger := initializeLogger(config)
+	config := appInit.MustLoadConfig()
+	logger := appInit.MustInitLogger(config)
 
 	defer func() {
 		if err := logger.Sync(); err != nil {
@@ -58,26 +57,4 @@ func main() {
 	}
 
 	logger.Info("Producer exited cleanly")
-}
-
-// loadConfig loads the config.
-func loadConfig() *config.Config {
-	config, err := config.LoadConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	return config
-}
-
-// initializeLogger sets up the zap logger.
-func initializeLogger(config *config.Config) *zap.Logger {
-	logger, err := logger.CreateLogger(config.LogLevel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
-	}
-
-	return logger
 }
