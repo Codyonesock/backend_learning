@@ -13,6 +13,7 @@ import (
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/appInit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
+	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -33,7 +34,7 @@ func main() {
 		defer scyllaStorage.Session.Close()
 	}
 
-	// statsService := stats.NewStatsService(logger, storageBackend)
+	statsService := stats.NewStatsService(logger, storageBackend)
 
 	cl, err := setupKafkaClient()
 	if err != nil {
@@ -48,7 +49,7 @@ func main() {
 
 	logger.Info("Consumer started, waiting for messages...")
 
-	processMessages(ctx, cl, logger)
+	processMessages(ctx, cl, logger, statsService)
 
 	logger.Info("Consumer exited cleanly")
 }
@@ -73,7 +74,7 @@ func handleShutdown(logger *zap.Logger, cancel context.CancelFunc) {
 	}()
 }
 
-func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger) {
+func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger, statsService *stats.Service) {
 	for {
 		fetches := cl.PollFetches(ctx)
 		if errs := fetches.Errors(); len(errs) > 0 {
@@ -91,10 +92,7 @@ func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger) {
 				return
 			}
 
-			// err := statsService.UpdateStats(ctx, rc)
-			// if err != nil {
-			// 	logger.Warn("failed to update stats", zap.Error(err))
-			// }
+			statsService.UpdateStats(rc)
 		})
 	}
 }
