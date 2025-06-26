@@ -1,0 +1,61 @@
+services:
+  scylla:
+    image: scylladb/scylla:latest
+    container_name: scylla
+    ports:
+      - "9042:9042"
+    volumes:
+      - scylla-data:/var/lib/scylla
+    environment:
+      - SCYLLA_CONF=/etc/scylla/scylla.yaml
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "DESCRIBE KEYSPACES"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: redpanda
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --node-id 0
+      - --check=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9644/v1/status/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  producer:
+    build:
+      context: ..
+      dockerfile: ch-1/cmd/producer/Dockerfile
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    env_file:
+      - ../.env
+
+  consumer:
+    build:
+      context: ..
+      dockerfile: ch-1/cmd/consumer/Dockerfile
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      scylla:
+        condition: service_healthy
+    env_file:
+      - ../.env
+
+volumes:
+  scylla-data:

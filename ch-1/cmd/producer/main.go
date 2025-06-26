@@ -30,7 +30,7 @@ func main() {
 	)
 
 	cl, err := kgo.NewClient(
-		kgo.SeedBrokers("localhost:9092"), // TODO: Adjust for docker-compose later
+		kgo.SeedBrokers("redpanda:9092"),
 		kgo.DefaultProduceTopic("wikimedia-changes"),
 	)
 
