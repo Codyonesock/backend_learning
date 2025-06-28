@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zaptest"
 
@@ -69,7 +70,16 @@ func TestProcessMessages(t *testing.T) {
 	stats := &mockStatsUpdater{calls: []shared.RecentChange{}}
 	logger := zaptest.NewLogger(t)
 
-	consumer.ProcessMessages(ctx, client, logger, stats)
+	go func() {
+		consumer.ProcessMessages(ctx, client, logger, stats)
+	}()
+
+	// trigger cancel after a moment
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// wait for consumer to cancel
+	time.Sleep(50 * time.Millisecond)
 
 	if !client.committed {
 		t.Errorf("expected CommitRecords to be called")
