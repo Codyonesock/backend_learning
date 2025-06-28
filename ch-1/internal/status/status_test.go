@@ -2,6 +2,7 @@ package status_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type MockStatsInterface struct {
@@ -71,5 +73,51 @@ func TestProcessStream(t *testing.T) {
 
 	if rc.ServerURL != "https://blub.com" {
 		t.Errorf("expected server_url to be 'https://blub.com', got '%s'", rc.ServerURL)
+	}
+}
+
+type mockProducer struct {
+	produced [][]byte
+}
+
+// Produce appends the produced record's value to the mockProducer's produced slice
+// and invokes the callback to simulate successful production.
+func (m *mockProducer) Produce(_ context.Context, record *kgo.Record, cb func(*kgo.Record, error)) {
+	m.produced = append(m.produced, record.Value)
+	cb(record, nil)
+}
+
+// TestStreamAndProduce sets up a mock HTTP server and producer, then tests that
+// StreamAndProduce reads from the stream and produces at least one message.
+func TestStreamAndProduce(t *testing.T) {
+	t.Parallel()
+
+	// simulate Wikimedia stream
+	server := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := io.WriteString(
+			w,
+			"data: {\"user\":\"blub\",\"bot\":false,\"server_url\":\"https://blub.com\"}\n"); err != nil {
+			t.Fatalf("unexpected write error: %v", err)
+		}
+	})
+	ts := httptest.NewServer(server)
+
+	defer ts.Close()
+
+	mp := &mockProducer{
+		produced: [][]byte{},
+	}
+	logger := zap.NewNop()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+
+	defer cancel()
+
+	err := status.StreamAndProduce(ctx, ts.URL, mp, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mp.produced) == 0 {
+		t.Errorf("expected at least one message produced")
 	}
 }

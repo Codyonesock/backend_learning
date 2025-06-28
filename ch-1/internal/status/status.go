@@ -125,8 +125,13 @@ func (s *Service) handleStreamData(line string) error {
 	return nil
 }
 
+// Producer interface.
+type Producer interface {
+	Produce(ctx context.Context, record *kgo.Record, cb func(*kgo.Record, error))
+}
+
 // StreamAndProduce reads the wikimedia stream and produces each event to Redpanda.
-func StreamAndProduce(ctx context.Context, streamURL string, producer *kgo.Client, log *zap.Logger) error {
+func StreamAndProduce(ctx context.Context, streamURL string, producer Producer, logger *zap.Logger) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, streamURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
@@ -139,20 +144,20 @@ func StreamAndProduce(ctx context.Context, streamURL string, producer *kgo.Clien
 
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Error("Error closing response body", zap.Error(err))
+			logger.Error("Error closing response body", zap.Error(err))
 		}
 	}()
 
 	processFunc := func(line string) error {
 		var rc shared.RecentChange
 		if err := json.Unmarshal([]byte(line[5:]), &rc); err != nil {
-			log.Warn("failed to unmarshal event", zap.Error(err))
+			logger.Warn("failed to unmarshal event", zap.Error(err))
 			return nil
 		}
 
 		eventBytes, err := json.Marshal(rc)
 		if err != nil {
-			log.Warn("failed to marshal event", zap.Error(err))
+			logger.Warn("failed to marshal event", zap.Error(err))
 			return nil
 		}
 
@@ -162,7 +167,7 @@ func StreamAndProduce(ctx context.Context, streamURL string, producer *kgo.Clien
 
 		producer.Produce(ctx, record, func(_ *kgo.Record, err error) {
 			if err != nil {
-				log.Warn("failed to produce to Redpanda", zap.Error(err))
+				logger.Warn("failed to produce to Redpanda", zap.Error(err))
 			}
 		})
 

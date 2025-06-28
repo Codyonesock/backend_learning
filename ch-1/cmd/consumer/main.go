@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
-	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
+	"github.com/codyonesock/backend_learning/ch-1/internal/consumer"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
 )
@@ -49,7 +48,7 @@ func main() {
 
 	logger.Info("Consumer started, waiting for messages...")
 
-	processMessages(ctx, cl, logger, statsService)
+	consumer.ProcessMessages(ctx, cl, logger, statsService)
 
 	logger.Info("Consumer exited cleanly")
 }
@@ -73,42 +72,4 @@ func handleShutdown(logger *zap.Logger, cancel context.CancelFunc) {
 		logger.Info("Shutting down consumer...")
 		cancel()
 	}()
-}
-
-func processMessages(ctx context.Context, cl *kgo.Client, logger *zap.Logger, statsService *stats.Service) {
-	for {
-		fetches := cl.PollFetches(ctx)
-		if errs := fetches.Errors(); len(errs) > 0 {
-			for _, err := range errs {
-				logger.Warn("fetch error", zap.Error(err.Err))
-			}
-
-			continue
-		}
-
-		records := fetches.Records()
-		if len(records) == 0 {
-			continue
-		}
-
-		var batch []shared.RecentChange
-
-		for _, record := range records {
-			var rc shared.RecentChange
-			if err := json.Unmarshal(record.Value, &rc); err != nil {
-				logger.Warn("failed to unmarshal event", zap.Error(err))
-				return
-			}
-
-			batch = append(batch, rc)
-		}
-
-		for _, rc := range batch {
-			statsService.UpdateStats(rc)
-		}
-
-		if err := cl.CommitRecords(ctx, records...); err != nil {
-			logger.Warn("failed to commit offsets", zap.Error(err))
-		}
-	}
 }

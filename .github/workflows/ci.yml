@@ -87,6 +87,18 @@ jobs:
         if: always()
         run: docker compose -f ch-3/compose.yaml down -v
 
+      - name: Build producer binary
+        run: go build -o producer ./ch-1/cmd/producer
+
+      - name: Build consumer binary
+        run: go build -o consumer ./ch-1/cmd/consumer
+
+      - name: Smoke test producer binary
+        run: ./producer --help || true
+
+      - name: Smoke test consumer binary
+        run: ./consumer --help || true
+
       - name: Build and push Docker image
         if: github.event_name == 'push'
         env:
