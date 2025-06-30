@@ -93,7 +93,7 @@ Chapter 6 swaps the JSON to Protobuf to make the system more efficent. The produ
 
 ##### Example commands
 - `protoc --go_out=. --go_opt=paths=source_relative ch-6/proto/recent_change.proto` - Generate proto code using the schema.
-- `docker compose -f ./ch-5/compose.yaml up --build` - Build and start all services.
+- `docker compose -f ./ch-6/compose.yaml up --build` - Build and start all services.
 
   Create Redpanda proto topic and set proto settings:
   3 partions for development. If this were a prod/larger more could be needed.
@@ -102,4 +102,3 @@ Chapter 6 swaps the JSON to Protobuf to make the system more efficent. The produ
 
   Set lz4 compression for low CPU overhead and efficiency:
 - `docker exec redpanda rpk topic alter-config wikimedia-changes-proto --set compression.type=lz4`
-
