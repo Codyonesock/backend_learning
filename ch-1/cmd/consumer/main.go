@@ -57,7 +57,7 @@ func setupKafkaClient() (*kgo.Client, error) {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers("redpanda:9092"),
 		kgo.ConsumerGroup("wikimedia-consumer-group"),
-		kgo.ConsumeTopics("wikimedia-changes"),
+		kgo.ConsumeTopics("wikimedia-changes-proto"),
 		kgo.DisableAutoCommit(),
 	)
 

@@ -3,13 +3,14 @@ package consumer
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
+	wikimedia "github.com/codyonesock/backend_learning/ch-6/proto"
 )
 
 // KafkaClient abstracts the Redpanda client for polling and committing records.
@@ -74,12 +75,17 @@ func unmarshalRecords(records []*kgo.Record, logger *zap.Logger) []shared.Recent
 	batch := make([]shared.RecentChange, 0, len(records))
 
 	for _, record := range records {
-		var rc shared.RecentChange
-		if err := json.Unmarshal(record.Value, &rc); err != nil {
-			logger.Warn("failed to unmarshal event", zap.Error(err))
+		var pb wikimedia.RecentChange
+		if err := proto.Unmarshal(record.Value, &pb); err != nil {
+			logger.Warn("failed to unmarshal protobuf event", zap.Error(err))
 			continue
 		}
 
+		rc := shared.RecentChange{
+			User:      pb.User,
+			Bot:       pb.Bot,
+			ServerURL: pb.ServerUrl,
+		}
 		batch = append(batch, rc)
 	}
 

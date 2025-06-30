@@ -31,7 +31,7 @@ func main() {
 
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers("redpanda:9092"),
-		kgo.DefaultProduceTopic("wikimedia-changes"),
+		kgo.DefaultProduceTopic("wikimedia-changes-proto"),
 	)
 
 	if err != nil {

@@ -15,9 +15,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
+	wikimedia "github.com/codyonesock/backend_learning/ch-6/proto"
 )
 
 // Service handles dependencies and config.
@@ -155,7 +157,13 @@ func StreamAndProduce(ctx context.Context, streamURL string, producer Producer, 
 			return nil
 		}
 
-		eventBytes, err := json.Marshal(rc)
+		pb := &wikimedia.RecentChange{
+			User:      rc.User,
+			Bot:       rc.Bot,
+			ServerUrl: rc.ServerURL,
+		}
+
+		eventBytes, err := proto.Marshal(pb)
 		if err != nil {
 			logger.Warn("failed to marshal event", zap.Error(err))
 			return nil

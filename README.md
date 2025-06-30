@@ -87,3 +87,19 @@ Chapter 5 introduced Redpanda and splits the app into two. A producer that reads
 - `docker compose -f ./ch-5/compose.yaml logs` - Check logs.
 - `curl http://localhost:9644/v1/status/ready` - Check Redpanda status.
 - `docker exec redpanda rpk topic create wikimedia-changes` - Create Redpanda Topic
+
+## ch6
+Chapter 6 swaps the JSON to Protobuf to make the system more efficent. The producer will serialize using protobuf, and the consumer deserialize as well. The proto schema is also mounted to RedPanda console.
+
+##### Example commands
+- `protoc --go_out=. --go_opt=paths=source_relative ch-6/proto/recent_change.proto` - Generate proto code using the schema.
+- `docker compose -f ./ch-5/compose.yaml up --build` - Build and start all services.
+
+  Create Redpanda proto topic and set proto settings:
+  3 partions for development. If this were a prod/larger more could be needed.
+  1 Replica to save on volume. More would be needed for data that mattered to protect against failure.
+- `docker exec redpanda rpk topic create wikimedia-changes-proto --partitions 3 --replicas 1`
+
+  Set lz4 compression for low CPU overhead and efficiency:
+- `docker exec redpanda rpk topic alter-config wikimedia-changes-proto --set compression.type=lz4`
+
