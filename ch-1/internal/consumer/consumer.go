@@ -24,11 +24,13 @@ type StatsUpdater interface {
 	UpdateStats(rc shared.RecentChange)
 }
 
+const updateIntTime = 5 * time.Second
+
 // ProcessMessages consumes messages from Redpanda, updates statistics, and commits offsets.
 // It processes messages in batches and handles errors and acknowledgements.
 func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, statsService StatsUpdater) {
 	// Note: I only added this because the volume spam is annoying.
-	updateInterval := 5 * time.Second
+	updateInterval := updateIntTime
 	nextUpdate := time.Now()
 
 	for {
@@ -56,6 +58,7 @@ func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, st
 			for _, rc := range batch {
 				statsService.UpdateStats(rc)
 			}
+
 			nextUpdate = now.Add(updateInterval)
 		}
 
@@ -82,9 +85,9 @@ func unmarshalRecords(records []*kgo.Record, logger *zap.Logger) []shared.Recent
 		}
 
 		rc := shared.RecentChange{
-			User:      pb.User,
-			Bot:       pb.Bot,
-			ServerURL: pb.ServerUrl,
+			User:      pb.GetUser(),
+			Bot:       pb.GetBot(),
+			ServerURL: pb.GetServerUrl(),
 		}
 		batch = append(batch, rc)
 	}
