@@ -4,6 +4,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
@@ -25,6 +26,10 @@ type StatsUpdater interface {
 // ProcessMessages consumes messages from Redpanda, updates statistics, and commits offsets.
 // It processes messages in batches and handles errors and acknowledgements.
 func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, statsService StatsUpdater) {
+	// Note: I only added this because the volume spam is annoying.
+	updateInterval := 5 * time.Second
+	nextUpdate := time.Now()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -45,8 +50,12 @@ func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, st
 
 		batch := unmarshalRecords(records, logger)
 
-		for _, rc := range batch {
-			statsService.UpdateStats(rc)
+		now := time.Now()
+		if now.After(nextUpdate) {
+			for _, rc := range batch {
+				statsService.UpdateStats(rc)
+			}
+			nextUpdate = now.Add(updateInterval)
 		}
 
 		if err := cl.CommitRecords(ctx, records...); err != nil {

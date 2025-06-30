@@ -68,9 +68,22 @@ CREATE TABLE stats_data.stats (
   distinct_server_urls map<text, int>
 );
 
+Check DB:
 DESCRIBE KEYSPACE stats_data;
 DESCRIBE TABLE stats_data.stats;
 ```
 
 ## ch4
 Chapter 4 adds in github actions to run unit tests, go vet, go lint, integration tests before building and uploading an image to ghcr.
+
+## ch5
+Chapter 5 introduced Redpanda and splits the app into two. A producer that reads from Wikimedia and produces to Redpanda and a consumer to read from Redpanda.
+
+##### Example commands
+- Make sure to setup your Scylla Keyspace/Table if you haven't prior. See commands in ch3.
+- `docker compose -f ./ch-5/compose.yaml up --build` - Build and start all services.
+- `docker compose -f ./ch-5/compose.yaml down` - Stop all services.
+- `docker compose -f ./ch-5/compose.yaml ps` - Check services.
+- `docker compose -f ./ch-5/compose.yaml logs` - Check logs.
+- `curl http://localhost:9644/v1/status/ready` - Check Redpanda status.
+- `docker exec redpanda rpk topic create wikimedia-changes` - Create Redpanda Topic

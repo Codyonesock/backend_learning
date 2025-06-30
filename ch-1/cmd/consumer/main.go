@@ -61,7 +61,11 @@ func setupKafkaClient() (*kgo.Client, error) {
 		kgo.DisableAutoCommit(),
 	)
 
-	return cl, fmt.Errorf("error setting up redpanda client: %w", err)
+	if err != nil {
+		return cl, fmt.Errorf("error setting up redpanda client: %w", err)
+	}
+
+	return cl, nil
 }
 
 func handleShutdown(logger *zap.Logger, cancel context.CancelFunc) {

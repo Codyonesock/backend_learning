@@ -29,6 +29,8 @@ services:
       - --reserve-memory 0M
       - --node-id 0
       - --check=false
+      - --advertise-kafka-addr=redpanda:9092
+      - --kafka-addr=0.0.0.0:9092
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9644/v1/status/ready"]
       interval: 10s
