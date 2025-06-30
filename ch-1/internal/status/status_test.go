@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
-	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type MockStatsInterface struct {
@@ -112,7 +113,9 @@ func TestStreamAndProduce(t *testing.T) {
 
 	defer cancel()
 
-	err := status.StreamAndProduce(ctx, ts.URL, mp, logger)
+	m := metrics.NewProducerMetrics()
+
+	err := status.StreamAndProduce(ctx, ts.URL, mp, logger, m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

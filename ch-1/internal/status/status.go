@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	wikimedia "github.com/codyonesock/backend_learning/ch-6/proto"
@@ -133,7 +134,13 @@ type Producer interface {
 }
 
 // StreamAndProduce reads the wikimedia stream and produces each event to Redpanda.
-func StreamAndProduce(ctx context.Context, streamURL string, producer Producer, logger *zap.Logger) error {
+func StreamAndProduce(
+	ctx context.Context,
+	streamURL string,
+	producer Producer,
+	logger *zap.Logger,
+	metrics *metrics.ProducerMetrics,
+) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, streamURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
@@ -156,6 +163,8 @@ func StreamAndProduce(ctx context.Context, streamURL string, producer Producer, 
 			logger.Warn("failed to unmarshal event", zap.Error(err))
 			return nil
 		}
+
+		metrics.EventsConsumed.Inc()
 
 		pb := &wikimedia.RecentChange{
 			User:      rc.User,

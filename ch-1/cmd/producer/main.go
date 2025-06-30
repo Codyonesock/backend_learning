@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
 
@@ -24,6 +25,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed to flush logger: %v\n", err)
 		}
 	}()
+
+	m := metrics.NewProducerMetrics()
+	metrics.StartServer(":2112")
 
 	logger.Info("Config loaded",
 		zap.String("stream_url", config.StreamURL),
@@ -51,7 +55,7 @@ func main() {
 		cancel()
 	}()
 
-	err = status.StreamAndProduce(ctx, config.StreamURL, cl, logger)
+	err = status.StreamAndProduce(ctx, config.StreamURL, cl, logger, m)
 	if err != nil && ctx.Err() == nil {
 		logger.Fatal("producer error", zap.Error(err))
 	}
