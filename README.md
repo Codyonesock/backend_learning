@@ -114,3 +114,14 @@ Chapter 7 brings in Prometheus & Grafana to monitor the system
 - Producer metrics: [http://localhost:2112/metrics](http://localhost:2112/metrics)
 - Consumer metrics: [http://localhost:2113/metrics](http://localhost:2113/metrics)
 - Import the example dashboard from `ch-7/grafana_dashboard_example.json` in Grafana
+
+## ch8
+Chapter 8 demonstrates scaling consumers, batching database writes, and ensuring resilience to restarts.
+
+- Multiple consumers can be configured to run in parallel.
+- Stats updates are batches for efficient db writes.
+- The system is resilient to restart by using Kafka and committing offsets.
+
+##### Example commands
+- `go run ./ch-1/cmd/consumer` - Run just the consumer (Default concurrency is 2).
+- `go test ./ch-1/internal/... -race` - Run tests with race detection to validate concurrency.

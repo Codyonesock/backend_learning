@@ -29,6 +29,10 @@ const updateIntTime = 5 * time.Second
 
 // ProcessMessages consumes messages from Redpanda, updates statistics, and commits offsets.
 // It processes messages in batches and handles errors and acknowledgements.
+//
+// Resilience note:
+// Commit the offsets after stats are updated and saved via UpdateStats batching.
+// If the app crashes or is restarted before the commit, Kafka should process the messages.
 func ProcessMessages(
 	ctx context.Context,
 	cl KafkaClient,

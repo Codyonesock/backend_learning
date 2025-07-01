@@ -32,15 +32,16 @@ type ServiceInterface interface {
 
 // Service handles dependencies.
 type Service struct {
-	Logger  *zap.Logger
-	Mu      sync.Mutex
-	Stats   *shared.Stats
-	Storage storage.Storage
+	Logger   *zap.Logger
+	Mu       sync.Mutex
+	Stats    *shared.Stats
+	Storage  storage.Storage
+	updateCh chan shared.RecentChange
 }
 
 // NewStatsService create a new instance of Service.
 func NewStatsService(l *zap.Logger, storage storage.Storage) *Service {
-	return &Service{
+	s := &Service{
 		Logger: l,
 		Mu:     sync.Mutex{},
 		Stats: &shared.Stats{
@@ -50,8 +51,11 @@ func NewStatsService(l *zap.Logger, storage storage.Storage) *Service {
 			NonBotsCount:       0,
 			DistinctServerURLs: map[string]int{},
 		},
-		Storage: storage,
+		Storage:  storage,
+		updateCh: make(chan shared.RecentChange, 1000),
 	}
+	go s.batchUpdater()
+	return s
 }
 
 // SaveStats saves the current stats.
@@ -108,25 +112,58 @@ func (s *Service) Handler(statsService *Service) http.Handler {
 	return r
 }
 
-// UpdateStats updates the Stats with the given RecentChange.
-func (s *Service) UpdateStats(rc shared.RecentChange) {
-	s.Mu.Lock()
+// batchUpdater batches updates and saves them periodically or when batchSize is reached.
+func (s *Service) batchUpdater() {
+	const (
+		batchSize   = 100
+		flushPeriod = time.Second
+	)
+	ticker := time.NewTicker(flushPeriod)
+	defer ticker.Stop()
 
-	s.Stats.MessagesConsumed++
-	s.Stats.DistinctUsers[rc.User]++
-	s.Stats.DistinctServerURLs[rc.ServerURL]++
-
-	if rc.Bot {
-		s.Stats.BotsCount++
-	} else {
-		s.Stats.NonBotsCount++
+	batch := make([]shared.RecentChange, 0, batchSize)
+	for {
+		select {
+		case rc := <-s.updateCh:
+			batch = append(batch, rc)
+			if len(batch) >= batchSize {
+				s.applyBatch(batch)
+				batch = batch[:0]
+			}
+		case <-ticker.C:
+			if len(batch) > 0 {
+				s.applyBatch(batch)
+				batch = batch[:0]
+			}
+		}
 	}
+}
 
-	s.Logger.Info("Stats updated", zap.String("user", rc.User), zap.Bool("bot", rc.Bot))
+// applyBatch applies a batch of updates and saves once.
+func (s *Service) applyBatch(batch []shared.RecentChange) {
+	s.Mu.Lock()
+	for _, rc := range batch {
+		s.Stats.MessagesConsumed++
+		s.Stats.DistinctUsers[rc.User]++
+		s.Stats.DistinctServerURLs[rc.ServerURL]++
+		if rc.Bot {
+			s.Stats.BotsCount++
+		} else {
+			s.Stats.NonBotsCount++
+		}
+	}
 	s.Mu.Unlock()
-
 	if err := s.SaveStats(); err != nil {
-		s.Logger.Error("Failed to save stats after update", zap.Error(err))
+		s.Logger.Error("Failed to save stats after batch update", zap.Error(err))
+	}
+}
+
+// UpdateStats now enqueues updates for batching.
+func (s *Service) UpdateStats(rc shared.RecentChange) {
+	select {
+	case s.updateCh <- rc:
+	default:
+		s.Logger.Warn("Stats update channel full, dropping update")
 	}
 }
 

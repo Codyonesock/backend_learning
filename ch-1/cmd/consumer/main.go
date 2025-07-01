@@ -39,12 +39,6 @@ func main() {
 
 	statsService := stats.NewStatsService(logger, storageBackend)
 
-	cl, err := setupKafkaClient()
-	if err != nil {
-		logger.Fatal("failed to create Redpanda client", zap.Error(err))
-	}
-	defer cl.Close()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -52,8 +46,22 @@ func main() {
 
 	logger.Info("Consumer started, waiting for messages...")
 
-	consumer.ProcessMessages(ctx, cl, logger, statsService, cm)
+	// Note: Just for the basic example, only run two.
+	for i := 0; i < 2; i++ {
+		go func(consumerID int) {
+			cl, err := setupKafkaClient()
+			if err != nil {
+				logger.Fatal("failed to create Redpanda client", zap.Error(err))
+			}
+			defer cl.Close()
 
+			logger.Info("Consumer goroutine started", zap.Int("id", consumerID))
+			consumer.ProcessMessages(ctx, cl, logger, statsService, cm)
+			logger.Info("Consumer goroutine exited", zap.Int("id", consumerID))
+		}(i)
+	}
+
+	<-ctx.Done()
 	logger.Info("Consumer exited cleanly")
 }
 
