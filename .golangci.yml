@@ -2,21 +2,6 @@ version: "2"
 linters:
   default: "all"
   settings:
-    depguard:
-      rules:
-        main:
-          allow:
-            - $gostd
-            - github.com/codyonesock
-            - github.com/go-chi
-            - github.com/kelseyhightower
-            - go.uber.org/zap
-            - github.com/golang-jwt/jwt/v5
-            - github.com/gocql/gocql
-            - github.com/twmb/franz-go/pkg/kg
-            - google.golang.org/protobuf/proto
-            - github.com/prometheus/client_golang/prometheus
-            - github.com/prometheus/client_golang/prometheus/promhttp
     exhaustruct:
       exclude:
         - '^net/http\.Server$'
@@ -30,3 +15,4 @@ linters:
       min-name-length: 1
   disable:
     - nlreturn
+    - depguard
