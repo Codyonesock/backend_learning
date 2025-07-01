@@ -24,6 +24,9 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      - name: Clean go build cache
+        run: go clean -modcache
+
       - name: Install dependencies
         run: go mod tidy
 
