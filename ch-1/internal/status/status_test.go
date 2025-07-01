@@ -2,14 +2,17 @@ package status_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/codyonesock/backend_learning/ch-1/internal/status"
 )
@@ -88,49 +91,49 @@ func (m *mockProducer) Produce(_ context.Context, record *kgo.Record, cb func(*k
 
 // TestStreamAndProduce sets up a mock HTTP server and producer, then tests that
 // StreamAndProduce reads from the stream and produces at least one message.
-// func TestStreamAndProduce(t *testing.T) {
-// 	t.Parallel()
+func TestStreamAndProduce(t *testing.T) {
+	t.Parallel()
 
-// 	// simulate Wikimedia stream
-// 	server := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-// 		if _, err := io.WriteString(
-// 			w,
-// 			"data: {\"user\":\"blub\",\"bot\":false,\"server_url\":\"https://blub.com\"}\n"); err != nil {
-// 			t.Fatalf("unexpected write error: %v", err)
-// 		}
-// 	})
-// 	ts := httptest.NewServer(server)
+	// simulate Wikimedia stream
+	server := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := io.WriteString(
+			w,
+			"data: {\"user\":\"blub\",\"bot\":false,\"server_url\":\"https://blub.com\"}\n"); err != nil {
+			t.Fatalf("unexpected write error: %v", err)
+		}
+	})
+	ts := httptest.NewServer(server)
 
-// 	defer ts.Close()
+	defer ts.Close()
 
-// 	mp := &mockProducer{
-// 		produced: [][]byte{},
-// 	}
-// 	logger := zap.NewNop()
-// 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	mp := &mockProducer{
+		produced: [][]byte{},
+	}
+	logger := zap.NewNop()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 
-// 	defer cancel()
+	defer cancel()
 
-// 	m := metrics.NewProducerMetrics()
+	m := metrics.NewProducerMetrics()
 
-// 	err := status.StreamAndProduce(ctx, ts.URL, mp, logger, m)
-// 	if err != nil {
-// 		t.Fatalf("unexpected error: %v", err)
-// 	}
+	err := status.StreamAndProduce(ctx, ts.URL, mp, logger, m)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-// 	if len(mp.produced) == 0 {
-// 		t.Errorf("expected at least one message produced")
-// 	}
+	if len(mp.produced) == 0 {
+		t.Errorf("expected at least one message produced")
+	}
 
-// 	if m.EventsConsumed.Desc() == nil || m.EventsConsumed.Desc().String() == "" {
-// 		t.Errorf("EventsConsumed counter not registered")
-// 	}
+	if m.EventsConsumed.Desc() == nil || m.EventsConsumed.Desc().String() == "" {
+		t.Errorf("EventsConsumed counter not registered")
+	}
 
-// 	if testutil.ToFloat64(m.EventsConsumed) == 0 {
-// 		t.Errorf("expected EventsConsumed to be incremented")
-// 	}
+	if testutil.ToFloat64(m.EventsConsumed) == 0 {
+		t.Errorf("expected EventsConsumed to be incremented")
+	}
 
-// 	if testutil.ToFloat64(m.EventsPersisted) == 0 {
-// 		t.Errorf("expected EventsPersisted to be incremented")
-// 	}
-// }
+	if testutil.ToFloat64(m.EventsPersisted) == 0 {
+		t.Errorf("expected EventsPersisted to be incremented")
+	}
+}
