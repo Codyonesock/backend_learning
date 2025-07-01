@@ -125,3 +125,66 @@ Chapter 8 demonstrates scaling consumers, batching database writes, and ensuring
 ##### Example commands
 - `go run ./ch-1/cmd/consumer` - Run just the consumer (Default concurrency is 2).
 - `go test ./ch-1/internal/... -race` - Run tests with race detection to validate concurrency.
+
+## ch9
+Chapter 9 demonstrates deploying the system to Kubernetes, including ScyllaDB, Redpanda, Prometheus, and Grafana.
+
+##### Example commands
+> Ensure your Scylla keyspace/table and Redpanda topics are created as in previous chapters.
+
+- Start Kubernetes (Minikube or Docker Desktop)
+  ```sh
+  minikube start
+  ```
+- Build local images
+  ```sh
+  docker build -t producer:latest -f ./ch-1/cmd/producer/Dockerfile .
+  docker build -t consumer:latest -f ./ch-1/cmd/consumer/Dockerfile .
+  ```
+  For Minikube:
+  ```sh
+  eval $(minikube docker-env)
+  # Then build images as above
+  ```
+
+- Deploy ScyllaDB
+  ```sh
+  helm repo add bitnami https://charts.bitnami.com/bitnami
+  helm install scylla bitnami/cassandra --set fullnameOverride=scylla
+  ```
+
+- Deploy producer and consumer
+  ```sh
+  kubectl apply -f ./ch-9/producer-deployment.yaml
+  kubectl apply -f ./ch-9/consumer-deployment.yaml
+  ```
+
+- Deploy Prometheus and Grafana
+  ```sh
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm install prometheus prometheus-community/prometheus
+  helm repo add grafana https://grafana.github.io/helm-charts
+  helm install grafana grafana/grafana
+  ```
+
+- Access dashboards
+  ```sh
+  kubectl port-forward svc/prometheus-server 9090:80
+  kubectl port-forward svc/grafana 3000:80
+  ```
+  - Prometheus: [http://localhost:9090](http://localhost:9090)
+  - Grafana: [http://localhost:3000](http://localhost:3000)
+  - Import `ch-7/grafana_dashboard_example.json` in Grafana
+
+- Metrics endpoints (inside cluster):
+  - Producer: `producer:2112/metrics`
+  - Consumer: `consumer:2113/metrics`
+
+- Cleanup:
+  ```sh
+  kubectl delete -f ./ch-9/producer-deployment.yaml
+  kubectl delete -f ./ch-9/consumer-deployment.yaml
+  helm uninstall scylla
+  helm uninstall prometheus
+  helm uninstall grafana
+  ```

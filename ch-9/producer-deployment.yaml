@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+      - name: producer
+        image: producer:latest
+        imagePullPolicy: Never # Local testing
+        ports:
+        - containerPort: 2112
+        env:
+        - name: PORT
+          value: ":2112"
+        - name: STREAM_URL
+          value: "https://stream.wikimedia.org/v2/stream/recentchange"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: JWT_SECRET
+          value: "super-secure-random-key"
+        - name: USE_SCYLLA
+          value: "TRUE"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: producer
+spec:
+  selector:
+    app: producer
+  ports:
+    - protocol: TCP
+      port: 2112
+      targetPort: 2112
