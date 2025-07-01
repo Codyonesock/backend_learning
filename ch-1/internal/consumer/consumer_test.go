@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/consumer"
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -70,8 +71,10 @@ func TestProcessMessages(t *testing.T) {
 	stats := &mockStatsUpdater{calls: []shared.RecentChange{}}
 	logger := zaptest.NewLogger(t)
 
+	cm := metrics.NewConsumerMetrics()
+
 	go func() {
-		consumer.ProcessMessages(ctx, client, logger, stats)
+		consumer.ProcessMessages(ctx, client, logger, stats, cm)
 	}()
 
 	// trigger cancel after a moment

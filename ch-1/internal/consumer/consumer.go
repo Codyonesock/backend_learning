@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/shared"
 	wikimedia "github.com/codyonesock/backend_learning/ch-6/proto"
 )
@@ -28,7 +29,13 @@ const updateIntTime = 5 * time.Second
 
 // ProcessMessages consumes messages from Redpanda, updates statistics, and commits offsets.
 // It processes messages in batches and handles errors and acknowledgements.
-func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, statsService StatsUpdater) {
+func ProcessMessages(
+	ctx context.Context,
+	cl KafkaClient,
+	logger *zap.Logger,
+	statsService StatsUpdater,
+	metrics *metrics.ConsumerMetrics,
+) {
 	// Note: I only added this because the volume spam is annoying.
 	updateInterval := updateIntTime
 	nextUpdate := time.Now()
@@ -43,6 +50,8 @@ func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, st
 		fetches := cl.PollFetches(ctx)
 		if errs := fetches.Errors(); len(errs) > 0 {
 			logFetchErrors(logger, errs)
+			metrics.EventsProcessedFailed.Add(float64(len(errs)))
+
 			continue
 		}
 
@@ -51,12 +60,15 @@ func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, st
 			continue
 		}
 
+		metrics.EventsConsumed.Add(float64(len(records)))
+
 		batch := unmarshalRecords(records, logger)
 
 		now := time.Now()
 		if now.After(nextUpdate) {
 			for _, rc := range batch {
 				statsService.UpdateStats(rc)
+				metrics.EventsProcessedSuccess.Inc()
 			}
 
 			nextUpdate = now.Add(updateInterval)
@@ -64,6 +76,7 @@ func ProcessMessages(ctx context.Context, cl KafkaClient, logger *zap.Logger, st
 
 		if err := cl.CommitRecords(ctx, records...); err != nil {
 			logger.Warn("failed to commit offsets", zap.Error(err))
+			metrics.EventsProcessedFailed.Inc()
 		}
 	}
 }

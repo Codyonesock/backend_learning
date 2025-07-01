@@ -13,6 +13,7 @@ import (
 
 	"github.com/codyonesock/backend_learning/ch-1/internal/appinit"
 	"github.com/codyonesock/backend_learning/ch-1/internal/consumer"
+	"github.com/codyonesock/backend_learning/ch-1/internal/metrics"
 	"github.com/codyonesock/backend_learning/ch-1/internal/stats"
 	"github.com/codyonesock/backend_learning/ch-1/internal/storage"
 )
@@ -27,6 +28,9 @@ func main() {
 		}
 	}()
 	logger.Info("Config loaded", zap.String("stream_url", config.StreamURL))
+
+	cm := metrics.NewConsumerMetrics()
+	metrics.StartServer(":2112")
 
 	storageBackend := appinit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {
@@ -48,7 +52,7 @@ func main() {
 
 	logger.Info("Consumer started, waiting for messages...")
 
-	consumer.ProcessMessages(ctx, cl, logger, statsService)
+	consumer.ProcessMessages(ctx, cl, logger, statsService, cm)
 
 	logger.Info("Consumer exited cleanly")
 }
