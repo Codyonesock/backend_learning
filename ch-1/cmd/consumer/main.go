@@ -30,7 +30,7 @@ func main() {
 	logger.Info("Config loaded", zap.String("stream_url", config.StreamURL))
 
 	cm := metrics.NewConsumerMetrics()
-	metrics.StartServer(":2112")
+	metrics.StartServer(":2113")
 
 	storageBackend := appinit.MustInitStorage(config, logger)
 	if scyllaStorage, ok := storageBackend.(*storage.ScyllaStorage); ok {

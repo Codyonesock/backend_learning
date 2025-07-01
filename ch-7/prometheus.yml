@@ -7,4 +7,4 @@ scrape_configs:
       - targets: ['producer:2112']
   - job_name: 'consumer'
     static_configs:
-      - targets: ['consumer:2112']
+      - targets: ['consumer:2113']

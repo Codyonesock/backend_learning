@@ -102,3 +102,15 @@ Chapter 6 swaps the JSON to Protobuf to make the system more efficent. The produ
 
   Set lz4 compression for low CPU overhead and efficiency:
 - `docker exec redpanda rpk topic alter-config wikimedia-changes-proto --set compression.type=lz4`
+
+## ch7
+Chapter 7 brings in Prometheus & Grafana to monitor the system
+
+##### Example commands
+- Make sure your Scylla keyspaces/tables and RedPanda topics are configured. See above commands.
+- `docker compose -f ./ch-7/compose.yaml up --build` - Build and start all services.
+- Visit Prometheus at [http://localhost:9090](http://localhost:9090)
+- Visit Grafana at [http://localhost:3000](http://localhost:3000) (default login: `admin`/`admin`)
+- Producer metrics: [http://localhost:2112/metrics](http://localhost:2112/metrics)
+- Consumer metrics: [http://localhost:2113/metrics](http://localhost:2113/metrics)
+- Import the example dashboard from `ch-7/grafana_dashboard_example.json` in Grafana

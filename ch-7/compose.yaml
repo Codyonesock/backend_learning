@@ -73,7 +73,7 @@ services:
     env_file:
       - ../.env
     ports:
-      - "2112:2112"
+      - "2113:2112"
 
   prometheus:
     image: prom/prometheus:latest
